@@ -1,0 +1,229 @@
+// Pro Devis — Schéma de base de données
+// Générateur de devis pour artisans du bâtiment (Togo / Afrique)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Utilisateurs & entreprise
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  plan         Plan     @default(FREE)
+  createdAt    DateTime @default(now())
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  logoUrl      String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  address      String?
+  city         String?  @default("Lomé")
+  primaryTrade String?  // clé du métier principal
+  // Réglages devis par défaut
+  paymentTerms String?  @default("50% à la commande, 50% à la livraison")
+  validityDays Int      @default(30)
+  taxRate      Float    @default(0) // TVA en %, 0 si non assujetti
+  currency     String   @default("FCFA")
+  footerNote   String?  @default("Merci de votre confiance.")
+  createdAt    DateTime @default(now())
+
+  users     User[]
+  clients   Client[]
+  quotes    Quote[]
+  materials Material[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Référentiel métiers (data-driven)
+// ─────────────────────────────────────────────────────────────
+
+model Trade {
+  id    String @id @default(cuid())
+  key   String @unique // ex: "maconnerie"
+  name  String // ex: "Maçonnerie"
+  icon  String @default("🧱")
+  order Int    @default(0)
+
+  workTypes WorkType[]
+  materials Material[]
+}
+
+// Type de travail (ex: "Fenêtre aluminium", "Mur en parpaings")
+model WorkType {
+  id    String @id @default(cuid())
+  key   String @unique
+  name  String
+  order Int    @default(0)
+
+  trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tradeId String
+
+  // Champs de saisie attendus (JSON) — pilote l'UI du formulaire
+  // [{ key, label, unit, default }]
+  inputs Json
+
+  // "Recette" de calcul (JSON) — pilote le moteur de calcul
+  // [{ materialKey, label, metric, coef, waste }]
+  recipe Json
+
+  quotes Quote[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Matériaux & prix (modèle global + surcharge par entreprise)
+// ─────────────────────────────────────────────────────────────
+
+enum MaterialKind {
+  MATERIAL // matière première
+  LABOR    // main-d'œuvre
+  TRANSPORT
+  OTHER    // frais divers
+}
+
+model Material {
+  id        String       @id @default(cuid())
+  key       String // identifiant logique (ex: "ciment"), unique par périmètre
+  name      String
+  category  String?
+  kind      MaterialKind @default(MATERIAL)
+  unit      String       @default("pièce") // m², m³, ml, kg, sac, tonne, pièce, litre
+  unitPrice Float        @default(0)
+  margin    Float        @default(0) // marge en %
+  supplier  String?
+  city      String?
+  updatedAt DateTime     @updatedAt
+
+  trade   Trade?  @relation(fields: [tradeId], references: [id])
+  tradeId String?
+
+  // null = modèle global (catalogue de base) ; sinon = prix propre à l'entreprise
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String?
+
+  @@index([companyId])
+  @@index([tradeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Clients (mini CRM)
+// ─────────────────────────────────────────────────────────────
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  whatsapp  String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  quotes Quote[]
+
+  @@index([companyId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Devis
+// ─────────────────────────────────────────────────────────────
+
+enum QuoteStatus {
+  DRAFT     // brouillon
+  SENT      // envoyé / en attente
+  ACCEPTED  // accepté
+  REFUSED   // refusé
+}
+
+model Quote {
+  id     String      @id @default(cuid())
+  number String // ex: "DEV-2026-0001"
+  status QuoteStatus @default(DRAFT)
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  client   Client? @relation(fields: [clientId], references: [id])
+  clientId String?
+
+  // copie figée des infos client au moment du devis
+  clientName    String?
+  clientPhone   String?
+  clientAddress String?
+
+  trade     WorkType? @relation(fields: [workTypeId], references: [id])
+  workTypeId String?
+  tradeKey   String? // métier (clé)
+  workLabel  String? // libellé du type de travail
+
+  projectDescription String?
+  siteAddress        String?
+
+  // Montants (calculés et stockés)
+  subtotal     Float @default(0) // total matières
+  laborTotal   Float @default(0)
+  transport    Float @default(0)
+  discount     Float @default(0) // remise (montant)
+  taxRate      Float @default(0)
+  taxAmount    Float @default(0)
+  total        Float @default(0)
+
+  currency     String @default("FCFA")
+  paymentTerms String?
+  validityDays Int     @default(30)
+  notes        String?
+
+  isInvoice Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items QuoteItem[]
+
+  @@index([companyId])
+  @@index([clientId])
+}
+
+model QuoteItem {
+  id          String       @id @default(cuid())
+  designation String
+  unit        String       @default("pièce")
+  quantity    Float        @default(1)
+  unitPrice   Float        @default(0)
+  total       Float        @default(0)
+  kind        MaterialKind @default(MATERIAL)
+  order       Int          @default(0)
+
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId String
+
+  @@index([quoteId])
+}
