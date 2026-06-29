@@ -33,3 +33,6 @@ yarn-error.log*
 # uploads
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# Local Netlify folder
+.netlify

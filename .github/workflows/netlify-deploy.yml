@@ -38,8 +38,12 @@ jobs:
           OPENROUTER_SEARCH_MODEL: ${{ vars.OPENROUTER_SEARCH_MODEL }}
 
       - name: Deploy to Netlify
-        if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
-        run: npx netlify-cli@latest deploy --prod --build --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "Netlify deployment skipped: NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID is missing."
+            exit 0
+          fi
+          npx netlify-cli@latest deploy --prod --build --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

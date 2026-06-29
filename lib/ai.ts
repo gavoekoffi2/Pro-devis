@@ -9,8 +9,11 @@
  * Sans clé, les fonctionnalités IA sont simplement masquées (dégradation propre).
  *
  * Modèles (configurables) :
- *   OPENROUTER_MODEL         (défaut: google/gemini-2.0-flash-001) — rédaction/structuration
- *   OPENROUTER_SEARCH_MODEL  (défaut: <model>:online)             — estimation de prix avec recherche web
+ *   OPENROUTER_MODEL         (défaut: google/gemini-2.5-flash-lite) — rédaction/structuration
+ *   OPENROUTER_SEARCH_MODEL  (défaut: <model>:online)              — estimation de prix avec recherche web
+ *
+ * En environnement de test derrière proxy, définir HTTPS_PROXY/HTTP_PROXY.
+ * En production Netlify normale, le fetch natif est utilisé sans proxy.
  */
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -20,11 +23,39 @@ export function aiEnabled(): boolean {
 }
 
 const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
+  process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash-lite";
 const SEARCH_MODEL =
   process.env.OPENROUTER_SEARCH_MODEL || `${DEFAULT_MODEL}:online`;
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
+
+type FetchLike = typeof fetch;
+
+let proxiedFetchPromise: Promise<FetchLike> | null = null;
+
+function proxyUrl(): string | undefined {
+  return (
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy
+  );
+}
+
+async function getFetch(): Promise<FetchLike> {
+  const proxy = proxyUrl();
+  if (!proxy) return fetch;
+
+  proxiedFetchPromise ??= (async () => {
+    // Runtime import volontaire : évite de forcer le chemin proxy dans le bundle Netlify.
+    const undici = (await import("undici")) as typeof import("undici");
+    const dispatcher = new undici.ProxyAgent(proxy);
+    return ((input: Parameters<FetchLike>[0], init?: Parameters<FetchLike>[1]) =>
+      undici.fetch(input as any, { ...(init as any), dispatcher }) as any) as FetchLike;
+  })();
+
+  return proxiedFetchPromise;
+}
 
 async function chat(
   messages: Msg[],
@@ -36,12 +67,13 @@ async function chat(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
-    const res = await fetch(API_URL, {
+    const request = await getFetch();
+    const res = await request(API_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://pro-devis.app",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://pro-devis.app",
         "X-Title": "Pro Devis",
       },
       body: JSON.stringify({
@@ -161,10 +193,34 @@ un objet {"<key>": <prix_entier>} sans texte autour.`;
     { model: SEARCH_MODEL, maxTokens: 800 }
   );
   const obj = extractJson<Record<string, number>>(raw);
+  const normalizedEntries = Object.entries(obj).map(([key, value]) => ({
+    key,
+    normalizedKey: normalizeAiKey(key),
+    value: Number(value),
+  }));
   const out: Record<string, number> = {};
   for (const it of items) {
-    const v = Number((obj as any)[it.key]);
-    if (Number.isFinite(v) && v > 0) out[it.key] = Math.round(v);
+    const normalizedWanted = normalizeAiKey(it.key);
+    const candidates = [
+      obj[it.key],
+      normalizedEntries.find((e) => e.normalizedKey === normalizedWanted)?.value,
+      normalizedEntries.find(
+        (e) =>
+          e.normalizedKey.includes(normalizedWanted) ||
+          normalizedWanted.includes(e.normalizedKey)
+      )?.value,
+    ];
+    const v = candidates.map(Number).find((n) => Number.isFinite(n) && n > 0);
+    if (v) out[it.key] = Math.round(v);
   }
   return out;
+}
+
+function normalizeAiKey(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
 }
