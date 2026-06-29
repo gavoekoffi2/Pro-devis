@@ -9,6 +9,10 @@ const schema = z.object({
   companyName: z.string().min(2, "Nom de l'entreprise requis"),
   phone: z.string().optional(),
   trade: z.string().optional(),
+  activity: z.string().optional(),
+  slogan: z.string().optional(),
+  brandColor: z.string().optional(),
+  city: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +24,8 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { email, password, companyName, phone, trade } = parsed.data;
+  const { email, password, companyName, phone, trade, activity, slogan, brandColor, city } =
+    parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -36,6 +41,10 @@ export async function POST(req: Request) {
       phone: phone || null,
       whatsapp: phone || null,
       primaryTrade: trade || null,
+      activity: activity || null,
+      slogan: slogan || null,
+      brandColor: brandColor || "#1c6df5",
+      city: city || "Lomé",
     },
   });
 

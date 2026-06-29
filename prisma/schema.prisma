@@ -41,12 +41,17 @@ model Company {
   id           String   @id @default(cuid())
   name         String
   logoUrl      String?
+  headerImageUrl String? // en-tête déjà prêt importé par l'utilisateur
   phone        String?
   whatsapp     String?
   email        String?
   address      String?
   city         String?  @default("Lomé")
   primaryTrade String?  // clé du métier principal
+  activity     String?  // description courte de l'activité
+  slogan       String?  // slogan de l'entreprise
+  brandColor   String   @default("#1c6df5") // couleur de marque (logo/en-tête auto)
+  headerStyle  String   @default("modern")  // style d'en-tête généré
   // Réglages devis par défaut
   paymentTerms String?  @default("50% à la commande, 50% à la livraison")
   validityDays Int      @default(30)
@@ -201,6 +206,11 @@ model Quote {
   paymentTerms String?
   validityDays Int     @default(30)
   notes        String?
+  specialInstructions String? // instructions spéciales du devis (délais, garantie…)
+
+  // Présentation / modèle PDF
+  templateId String @default("simple") // modèle de devis choisi
+  paperSize  String @default("A4")     // A4 ou A5
 
   isInvoice Boolean  @default(false)
   createdAt DateTime @default(now())

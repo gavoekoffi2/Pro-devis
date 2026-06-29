@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     paymentTerms,
     validityDays,
     notes,
+    specialInstructions,
   } = body;
 
   const cleanLines: ComputedLine[] = (lines as any[])
@@ -126,6 +127,7 @@ export async function POST(req: Request) {
       paymentTerms: paymentTerms ?? company.paymentTerms,
       validityDays: validityDays ?? company.validityDays,
       notes: notes || null,
+      specialInstructions: specialInstructions || null,
       ...totals,
       items: {
         create: cleanLines.map((l) => ({

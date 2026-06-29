@@ -55,6 +55,7 @@ export default function NewQuotePage() {
   const [totals, setTotals] = useState<Totals | null>(null);
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
+  const [specialInstructions, setSpecialInstructions] = useState("");
   const [computing, setComputing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -152,12 +153,13 @@ export default function NewQuotePage() {
         lines,
         discount,
         taxRate,
+        specialInstructions,
       }),
     });
     setSaving(false);
     const d = await res.json().catch(() => ({}));
     if (res.ok) {
-      router.push(`/devis/${d.id}`);
+      router.push(`/devis/${d.id}/apercu`);
     } else {
       setError(d.error || "Enregistrement impossible.");
     }
@@ -441,6 +443,17 @@ export default function NewQuotePage() {
               </div>
             </div>
 
+            <div>
+              <label className="label">Instructions spéciales (optionnel)</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="Délai d'exécution, garantie, conditions de paiement, matériaux spécifiques…"
+              />
+            </div>
+
             <dl className="space-y-1 text-sm pt-2 border-t border-slate-100">
               <Row label="Sous-total matières" value={totals.subtotal} />
               <Row label="Main-d'œuvre" value={totals.laborTotal} />
@@ -467,7 +480,7 @@ export default function NewQuotePage() {
               onClick={save}
               disabled={saving || lines.length === 0}
             >
-              {saving ? "Enregistrement…" : "✓ Créer le devis"}
+              {saving ? "Création…" : "→ Aperçu & choix du modèle"}
             </button>
           </div>
         </div>

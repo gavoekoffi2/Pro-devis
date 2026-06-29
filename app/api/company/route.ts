@@ -20,6 +20,11 @@ export async function PATCH(req: Request) {
     data: {
       name: body.name ?? undefined,
       logoUrl: body.logoUrl ?? undefined,
+      headerImageUrl: body.headerImageUrl ?? undefined,
+      activity: body.activity ?? undefined,
+      slogan: body.slogan ?? undefined,
+      brandColor: body.brandColor ?? undefined,
+      headerStyle: body.headerStyle ?? undefined,
       phone: body.phone ?? undefined,
       whatsapp: body.whatsapp ?? undefined,
       email: body.email ?? undefined,

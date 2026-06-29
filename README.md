@@ -21,8 +21,17 @@ génère un devis professionnel imprimable / partageable sur WhatsApp.
   mesures → devis calculé et éditable.
 - **Moteur de calcul** data-driven (recettes par type de travail, surface,
   volume, périmètre, pertes, main-d'œuvre, transport).
+- **8 modèles de devis premium** (Simple, Moderne, BTP, Architecte, Artisan,
+  Luxe, Économique, Identité forte) en **A4 ou A5**, avec aperçu en direct.
+- **Logo & en-tête générés automatiquement** (monogramme SVG) à partir du nom,
+  du métier et de la couleur de marque — ou import d'un logo / en-tête existant.
+- **Page d'aperçu éditable** : changer le modèle, le format, corriger les
+  textes, prix et lignes, ajouter des **instructions spéciales**, vérifier le
+  total — puis valider avant impression.
 - **Devis PDF** professionnel (logo, tableau détaillé, totaux, conditions,
-  « Bon pour accord »), imprimable et partageable sur WhatsApp.
+  instructions spéciales, « Bon pour accord »), imprimable et partageable WhatsApp.
+- **Page d'accueil marketing** complète (hero, problème/solution, étapes,
+  métiers, modèles, témoignages, tarifs, CTA).
 - **Historique** des devis : liste, détail, statut, duplication, suppression.
 - **Mini-CRM clients**.
 - **Tableau de bord** : nombre de devis, montant total, acceptés, en attente.
