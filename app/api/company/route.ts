@@ -25,6 +25,12 @@ export async function PATCH(req: Request) {
       slogan: body.slogan ?? undefined,
       brandColor: body.brandColor ?? undefined,
       headerStyle: body.headerStyle ?? undefined,
+      isRegistered:
+        typeof body.isRegistered === "boolean" ? body.isRegistered : undefined,
+      nif: body.nif ?? undefined,
+      rccm: body.rccm ?? undefined,
+      bankInfo: body.bankInfo ?? undefined,
+      signatureUrl: body.signatureUrl ?? undefined,
       phone: body.phone ?? undefined,
       whatsapp: body.whatsapp ?? undefined,
       email: body.email ?? undefined,

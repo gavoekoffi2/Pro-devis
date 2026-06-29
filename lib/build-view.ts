@@ -1,4 +1,5 @@
 import type { QuoteView } from "./quote-view";
+import { amountInWords } from "./number-words";
 
 type AnyCompany = {
   name: string;
@@ -14,6 +15,11 @@ type AnyCompany = {
   brandColor?: string | null;
   headerStyle?: string | null;
   footerNote?: string | null;
+  isRegistered?: boolean;
+  nif?: string | null;
+  rccm?: string | null;
+  bankInfo?: string | null;
+  signatureUrl?: string | null;
 };
 
 type AnyQuote = {
@@ -36,6 +42,10 @@ type AnyQuote = {
   currency: string;
   paymentTerms?: string | null;
   specialInstructions?: string | null;
+  amountPaid?: number;
+  paymentStatus?: string;
+  acceptedAt?: Date | null;
+  signerName?: string | null;
   items: {
     designation: string;
     unit: string;
@@ -43,6 +53,7 @@ type AnyQuote = {
     unitPrice: number;
     total: number;
     kind?: string;
+    section?: string | null;
   }[];
 };
 
@@ -52,6 +63,10 @@ const fmt = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
 export function buildQuoteView(quote: AnyQuote, company: AnyCompany): QuoteView {
   const validUntil = new Date(quote.createdAt);
   validUntil.setDate(validUntil.getDate() + (quote.validityDays || 30));
+
+  // Champs légaux affichés UNIQUEMENT si l'entreprise est formalisée.
+  const formal = !!company.isRegistered;
+  const amountPaid = quote.amountPaid ?? 0;
 
   return {
     company: {
@@ -68,8 +83,13 @@ export function buildQuoteView(quote: AnyQuote, company: AnyCompany): QuoteView 
       brandColor: company.brandColor || "#1c6df5",
       headerStyle: company.headerStyle || "modern",
       footerNote: company.footerNote,
+      nif: formal ? company.nif : null,
+      rccm: formal ? company.rccm : null,
+      bankInfo: company.bankInfo,
+      signatureUrl: company.signatureUrl,
     },
     docTitle: quote.isInvoice ? "FACTURE" : "DEVIS",
+    isInvoice: quote.isInvoice,
     number: quote.number,
     date: fmt(quote.createdAt),
     validUntil: fmt(validUntil),
@@ -85,6 +105,7 @@ export function buildQuoteView(quote: AnyQuote, company: AnyCompany): QuoteView 
       unitPrice: i.unitPrice,
       total: i.total,
       kind: i.kind,
+      section: i.section,
     })),
     subtotal: quote.subtotal,
     laborTotal: quote.laborTotal,
@@ -97,5 +118,11 @@ export function buildQuoteView(quote: AnyQuote, company: AnyCompany): QuoteView 
     paymentTerms: quote.paymentTerms,
     validityDays: quote.validityDays,
     specialInstructions: quote.specialInstructions,
+    amountInWords: amountInWords(quote.total, quote.currency),
+    amountPaid,
+    balance: Math.max(0, (quote.total ?? 0) - amountPaid),
+    paymentStatus: quote.paymentStatus ?? "UNPAID",
+    acceptedAt: quote.acceptedAt ? fmt(quote.acceptedAt) : null,
+    signerName: quote.signerName ?? null,
   };
 }

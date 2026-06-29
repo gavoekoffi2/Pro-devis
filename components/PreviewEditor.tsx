@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuoteDocument, PAPER_WIDTH } from "@/components/templates";
 import { TEMPLATES, money, type QuoteView, type ViewItem } from "@/lib/quote-view";
+import { amountInWords } from "@/lib/number-words";
 
 type Props = {
   quoteId: string;
@@ -66,6 +67,8 @@ export function PreviewEditor({ quoteId, initialView, templateId, paper }: Props
       ...fields,
       items: lines.map((l) => ({ ...l, total: Math.round(l.quantity * l.unitPrice) })),
       ...totals,
+      amountInWords: amountInWords(totals.total, initialView.currency),
+      balance: Math.max(0, totals.total - (initialView.amountPaid || 0)),
     }),
     [initialView, fields, lines, totals]
   );

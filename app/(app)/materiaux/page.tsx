@@ -27,6 +27,9 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState("");
 
   async function load() {
     const r = await fetch("/api/materials");
@@ -36,6 +39,10 @@ export default function MaterialsPage() {
   }
   useEffect(() => {
     load();
+    fetch("/api/ai/status")
+      .then((r) => r.json())
+      .then((d) => setAiAvailable(!!d.enabled))
+      .catch(() => {});
   }, []);
 
   const trades = useMemo(() => {
@@ -53,6 +60,41 @@ export default function MaterialsPage() {
   function edit(key: string, field: "unitPrice" | "margin", value: number) {
     setMaterials((ms) =>
       ms.map((m) => (m.key === key ? { ...m, [field]: value, custom: true } : m))
+    );
+  }
+
+  async function estimateWithAI() {
+    setAiBusy(true);
+    setAiMsg("");
+    const target = shown.filter((m) => m.kind !== "LABOR");
+    const res = await fetch("/api/ai/estimate-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: target.map((m) => ({ key: m.key, name: m.name, unit: m.unit })),
+      }),
+    });
+    setAiBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setAiMsg(d.error || "Estimation impossible.");
+      return;
+    }
+    const prices: Record<string, number> = d.prices || {};
+    let n = 0;
+    setMaterials((ms) =>
+      ms.map((m) => {
+        if (prices[m.key]) {
+          n++;
+          return { ...m, unitPrice: prices[m.key], custom: true };
+        }
+        return m;
+      })
+    );
+    setAiMsg(
+      n > 0
+        ? `✨ ${n} prix estimés. Vérifiez puis enregistrez (✓) ceux qui vous conviennent.`
+        : "Aucune estimation obtenue."
     );
   }
 
@@ -78,6 +120,19 @@ export default function MaterialsPage() {
           Ajustez vos prix locaux. Ils sont utilisés dans tous vos devis.
         </p>
       </div>
+
+      {aiAvailable && (
+        <div className="card p-4 space-y-2">
+          <button
+            onClick={estimateWithAI}
+            disabled={aiBusy}
+            className="btn-primary w-full"
+          >
+            {aiBusy ? "Recherche des prix…" : "✨ Estimer les prix du marché (IA)"}
+          </button>
+          {aiMsg && <p className="text-xs text-slate-500">{aiMsg}</p>}
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Chip active={filter === "all"} onClick={() => setFilter("all")}>

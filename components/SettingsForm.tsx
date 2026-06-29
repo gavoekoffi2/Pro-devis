@@ -18,6 +18,11 @@ type Company = {
   slogan?: string | null;
   brandColor: string;
   headerStyle: string;
+  isRegistered: boolean;
+  nif?: string | null;
+  rccm?: string | null;
+  bankInfo?: string | null;
+  signatureUrl?: string | null;
   paymentTerms?: string | null;
   validityDays: number;
   taxRate: number;
@@ -226,7 +231,65 @@ export function SettingsForm({
       </div>
 
       <div className="card p-5 space-y-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.isRegistered}
+            onChange={(e) => set("isRegistered" as keyof Company, e.target.checked as any)}
+          />
+          <span>
+            <span className="font-bold">J'ai une entreprise formalisée</span>
+            <span className="block text-sm text-slate-500">
+              Cochez seulement si vous avez un NIF / RCCM. Sinon, laissez décoché —
+              vos devis resteront simples et professionnels, sans mentions
+              fiscales.
+            </span>
+          </span>
+        </label>
+
+        {form.isRegistered && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">NIF (n° fiscal)</label>
+              <input
+                className="input"
+                value={form.nif ?? ""}
+                onChange={(e) => set("nif", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">RCCM</label>
+              <input
+                className="input"
+                value={form.rccm ?? ""}
+                onChange={(e) => set("rccm", e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-5 space-y-4">
         <h2 className="font-bold">Réglages des devis</h2>
+        <div>
+          <label className="label">Coordonnées de paiement (Mobile Money / banque)</label>
+          <input
+            className="input"
+            value={form.bankInfo ?? ""}
+            onChange={(e) => set("bankInfo", e.target.value)}
+            placeholder="Flooz / TMoney : +228 …"
+          />
+        </div>
+        <div>
+          <label className="label">Signature / cachet (URL d'image, optionnel)</label>
+          <input
+            className="input"
+            value={form.signatureUrl ?? ""}
+            onChange={(e) => set("signatureUrl", e.target.value)}
+            placeholder="https://…/cachet.png"
+          />
+        </div>
         <div>
           <label className="label">Conditions de paiement par défaut</label>
           <input

@@ -7,6 +7,7 @@ export type ViewItem = {
   unitPrice: number;
   total: number;
   kind?: string;
+  section?: string | null;
 };
 
 export type QuoteView = {
@@ -24,8 +25,13 @@ export type QuoteView = {
     brandColor: string;
     headerStyle: string;
     footerNote?: string | null;
+    nif?: string | null;
+    rccm?: string | null;
+    bankInfo?: string | null;
+    signatureUrl?: string | null;
   };
   docTitle: string;
+  isInvoice: boolean;
   number: string;
   date: string;
   validUntil: string;
@@ -46,6 +52,14 @@ export type QuoteView = {
   paymentTerms?: string | null;
   validityDays: number;
   specialInstructions?: string | null;
+  amountInWords: string;
+  // Paiement (factures)
+  amountPaid: number;
+  balance: number;
+  paymentStatus: string;
+  // Acceptation en ligne
+  acceptedAt?: string | null;
+  signerName?: string | null;
 };
 
 export type TemplateMeta = {

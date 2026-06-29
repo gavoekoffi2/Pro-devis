@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Monogram } from "@/components/Monogram";
 import { contrastText, shade } from "@/lib/brand";
 import { money, type QuoteView } from "@/lib/quote-view";
@@ -48,6 +49,8 @@ export function Contacts({
       {c.phone && <div>Tél : {c.phone}</div>}
       {c.whatsapp && c.whatsapp !== c.phone && <div>WhatsApp : {c.whatsapp}</div>}
       {c.email && <div>{c.email}</div>}
+      {c.nif && <div>NIF : {c.nif}</div>}
+      {c.rccm && <div>RCCM : {c.rccm}</div>}
     </div>
   );
 }
@@ -80,7 +83,22 @@ export function ItemsTable({
         </tr>
       </thead>
       <tbody>
-        {view.items.map((it, i) => (
+        {view.items.map((it, i) => {
+          const prev = view.items[i - 1];
+          const showSection = it.section && it.section !== prev?.section;
+          return (
+          <Fragment key={i}>
+            {showSection && (
+              <tr key={`s-${i}`}>
+                <td
+                  colSpan={5}
+                  className={`${pad} font-bold uppercase tracking-wide`}
+                  style={{ background: headBg, color: headFg, fontSize: compact ? 9 : 11 }}
+                >
+                  {it.section}
+                </td>
+              </tr>
+            )}
           <tr key={i} style={{ background: i % 2 ? stripe : "transparent" }}>
             <td className={pad} style={{ borderBottom: `1px solid ${border}` }}>
               {it.designation}
@@ -110,7 +128,9 @@ export function ItemsTable({
               {money(it.total, "")}
             </td>
           </tr>
-        ))}
+          </Fragment>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -154,7 +174,37 @@ export function Totals({
           <span>TOTAL {view.taxAmount > 0 ? "TTC" : ""}</span>
           <span>{money(view.total, cur)}</span>
         </div>
+        {(view.isInvoice || view.amountPaid > 0) && (
+          <>
+            <Row label="Acompte versé" value={"- " + money(view.amountPaid, cur)} />
+            <div className="flex justify-between font-bold" style={{ color: accent }}>
+              <span>Reste à payer</span>
+              <span>{money(view.balance, cur)}</span>
+            </div>
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** Montant arrêté en toutes lettres (mention légale francophone). */
+export function AmountInWords({
+  view,
+  compact,
+}: {
+  view: QuoteView;
+  compact?: boolean;
+}) {
+  const label = view.isInvoice
+    ? "Arrêtée la présente facture à la somme de"
+    : "Arrêté le présent devis à la somme de";
+  return (
+    <div
+      className={compact ? "mt-2" : "mt-4"}
+      style={{ fontSize: compact ? 9 : 11, color: "#475569" }}
+    >
+      {label} : <span className="font-semibold italic">{view.amountInWords}</span>.
     </div>
   );
 }
@@ -178,10 +228,12 @@ export function Conditions({
   compact?: boolean;
 }) {
   return (
-    <div
-      className={`grid grid-cols-2 gap-6 ${compact ? "mt-4" : "mt-8"}`}
-      style={{ fontSize: compact ? 9 : 11, color: "#475569" }}
-    >
+    <div className={compact ? "mt-4" : "mt-8"}>
+      <AmountInWords view={view} compact={compact} />
+      <div
+        className="grid grid-cols-2 gap-6 mt-3"
+        style={{ fontSize: compact ? 9 : 11, color: "#475569" }}
+      >
       <div>
         {view.specialInstructions && (
           <div className="mb-3">
@@ -195,19 +247,51 @@ export function Conditions({
           Conditions de paiement
         </div>
         <p>{view.paymentTerms || "À convenir."}</p>
-        <p className="mt-1">Devis valable {view.validityDays} jours.</p>
+        {!view.isInvoice && (
+          <p className="mt-1">Devis valable {view.validityDays} jours.</p>
+        )}
+        {view.company.bankInfo && (
+          <p className="mt-1">Paiement : {view.company.bankInfo}</p>
+        )}
         {view.company.footerNote && (
           <p className="mt-2 italic">{view.company.footerNote}</p>
         )}
       </div>
       <div className="text-right">
-        <div className="font-semibold text-slate-700 mb-1">Bon pour accord</div>
-        <div
-          className="mt-8 pt-1 inline-block"
-          style={{ borderTop: "1px solid #cbd5e1", minWidth: 140 }}
-        >
-          Signature & cachet du client
-        </div>
+        {view.acceptedAt ? (
+          <div
+            className="inline-block rounded-lg px-3 py-2"
+            style={{ border: `2px solid ${accent}`, color: accent }}
+          >
+            <div className="font-bold uppercase text-xs">✓ Devis accepté</div>
+            <div className="text-[10px]">le {view.acceptedAt}</div>
+            {view.signerName && (
+              <div className="text-[10px]">par {view.signerName}</div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="font-semibold text-slate-700 mb-1">
+              {view.isInvoice ? "Cachet & signature" : "Bon pour accord"}
+            </div>
+            {view.company.signatureUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={view.company.signatureUrl}
+                alt="signature"
+                className="h-14 ml-auto object-contain"
+              />
+            ) : (
+              <div
+                className="mt-8 pt-1 inline-block"
+                style={{ borderTop: "1px solid #cbd5e1", minWidth: 140 }}
+              >
+                Signature & cachet du client
+              </div>
+            )}
+          </>
+        )}
+      </div>
       </div>
     </div>
   );

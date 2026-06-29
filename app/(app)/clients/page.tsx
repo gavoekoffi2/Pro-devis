@@ -16,6 +16,7 @@ export default function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
 
   async function load() {
     const r = await fetch("/api/clients");
@@ -100,6 +101,15 @@ export default function ClientsPage() {
         </form>
       )}
 
+      {!loading && clients.length > 0 && (
+        <input
+          className="input"
+          placeholder="Rechercher un client…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+
       {loading ? (
         <div className="p-8 text-center text-slate-500">Chargement…</div>
       ) : clients.length === 0 ? (
@@ -108,7 +118,17 @@ export default function ClientsPage() {
         </div>
       ) : (
         <div className="card divide-y divide-slate-100">
-          {clients.map((c) => (
+          {clients
+            .filter((c) => {
+              const s = query.toLowerCase();
+              return (
+                !s ||
+                c.name.toLowerCase().includes(s) ||
+                (c.phone || "").toLowerCase().includes(s) ||
+                (c.address || "").toLowerCase().includes(s)
+              );
+            })
+            .map((c) => (
             <div
               key={c.id}
               className="flex items-center justify-between px-5 py-4"

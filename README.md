@@ -32,6 +32,19 @@ génère un devis professionnel imprimable / partageable sur WhatsApp.
   instructions spéciales, « Bon pour accord »), imprimable et partageable WhatsApp.
 - **Page d'accueil marketing** complète (hero, problème/solution, étapes,
   métiers, modèles, témoignages, tarifs, CTA).
+- **Devis multi-postes** : plusieurs types de travaux + lignes libres dans un
+  même devis, regroupés par poste (sections) dans le PDF.
+- **Assistant IA** (optionnel) : décrivez le chantier en langage naturel →
+  l'IA propose postes, quantités et prix ; **estimation des prix du marché**
+  par recherche web. Branché sur OpenRouter (voir `.env.example`).
+- **Facture & paiement** : conversion devis → facture, acompte, solde,
+  statut payé/partiel/impayé.
+- **Acceptation en ligne** : lien client public (`/d/...`) pour consulter et
+  accepter/refuser le devis sans compte ; tampon « Devis accepté » sur le PDF.
+- **Mode légal optionnel** : NIF/RCCM **désactivés par défaut** (la plupart des
+  artisans ne sont pas formalisés) ; montant en toutes lettres automatique.
+- **PWA** : application installable sur téléphone, tolérante au hors-ligne.
+- **Recherche & filtres** sur les devis et les clients.
 - **Historique** des devis : liste, détail, statut, duplication, suppression.
 - **Mini-CRM clients**.
 - **Tableau de bord** : nombre de devis, montant total, acceptés, en attente.

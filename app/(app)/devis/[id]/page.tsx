@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
 import { QuoteActions } from "@/components/QuoteActions";
+import { QuoteManage } from "@/components/QuoteManage";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: "Brouillon", cls: "bg-slate-100 text-slate-600" },
@@ -107,6 +108,17 @@ export default async function QuoteDetail({
         status={quote.status}
         whatsapp={quote.clientPhone || company.whatsapp}
         shareText={shareText}
+      />
+
+      <QuoteManage
+        id={quote.id}
+        isInvoice={quote.isInvoice}
+        total={quote.total}
+        amountPaid={quote.amountPaid}
+        paymentStatus={quote.paymentStatus}
+        currency={quote.currency}
+        publicId={quote.publicId}
+        shareMessage={shareText}
       />
     </div>
   );

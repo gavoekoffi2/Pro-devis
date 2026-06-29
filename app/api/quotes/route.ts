@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { nextQuoteNumber } from "@/lib/materials";
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
     specialInstructions,
   } = body;
 
-  const cleanLines: ComputedLine[] = (lines as any[])
+  const cleanLines = (lines as any[])
     .map((l, i) => ({
       designation: String(l.designation ?? "").slice(0, 200),
       unit: String(l.unit ?? "pièce"),
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
       kind: (["MATERIAL", "LABOR", "TRANSPORT", "OTHER"].includes(l.kind)
         ? l.kind
         : "MATERIAL") as ComputedLine["kind"],
+      section: l.section ? String(l.section).slice(0, 120) : null,
       order: i,
     }))
     .filter((l) => l.designation && l.quantity > 0);
@@ -128,6 +130,7 @@ export async function POST(req: Request) {
       validityDays: validityDays ?? company.validityDays,
       notes: notes || null,
       specialInstructions: specialInstructions || null,
+      publicId: randomUUID(),
       ...totals,
       items: {
         create: cleanLines.map((l) => ({
@@ -137,7 +140,8 @@ export async function POST(req: Request) {
           unitPrice: l.unitPrice,
           total: l.total,
           kind: l.kind,
-          order: (l as any).order ?? 0,
+          section: l.section,
+          order: l.order,
         })),
       },
     },

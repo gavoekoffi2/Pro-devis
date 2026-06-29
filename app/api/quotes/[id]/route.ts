@@ -34,7 +34,15 @@ export async function PATCH(
   ) {
     data.status = body.status;
   }
-  if (body.isInvoice === true) data.isInvoice = true;
+  if (typeof body.isInvoice === "boolean") data.isInvoice = body.isInvoice;
+
+  // Suivi de paiement
+  if (body.amountPaid != null) {
+    const paid = Math.max(0, Number(body.amountPaid) || 0);
+    data.amountPaid = paid;
+    data.paymentStatus =
+      paid <= 0 ? "UNPAID" : paid >= quote.total ? "PAID" : "PARTIAL";
+  }
 
   // Présentation
   if (typeof body.templateId === "string") data.templateId = body.templateId;
@@ -58,7 +66,7 @@ export async function PATCH(
 
   // Lignes éditées → on remplace les items et recalcule les totaux
   let recompute = false;
-  let cleanLines: (ComputedLine & { order: number })[] = [];
+  let cleanLines: (ComputedLine & { order: number; section: string | null })[] = [];
   if (Array.isArray(body.lines)) {
     recompute = true;
     cleanLines = (body.lines as any[])
@@ -74,6 +82,7 @@ export async function PATCH(
           kind: (["MATERIAL", "LABOR", "TRANSPORT", "OTHER"].includes(l.kind)
             ? l.kind
             : "MATERIAL") as ComputedLine["kind"],
+          section: l.section ? String(l.section).slice(0, 120) : null,
           order: i,
         };
       })
@@ -99,6 +108,7 @@ export async function PATCH(
           unitPrice: l.unitPrice,
           total: l.total,
           kind: l.kind,
+          section: l.section,
           order: l.order,
         })),
       }),
