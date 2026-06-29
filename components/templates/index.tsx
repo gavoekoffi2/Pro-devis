@@ -1,3 +1,4 @@
+import { type ReactElement } from "react";
 import { type QuoteView } from "@/lib/quote-view";
 import {
   Logo,
@@ -452,7 +453,7 @@ function IdentiteTemplate({ view, compact }: TProps) {
   );
 }
 
-const REGISTRY: Record<string, (p: TProps) => JSX.Element> = {
+const REGISTRY: Record<string, (p: TProps) => ReactElement> = {
   simple: SimplePro,
   modern: ModernePremium,
   btp: BtpTemplate,

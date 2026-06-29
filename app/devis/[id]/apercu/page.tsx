@@ -8,13 +8,14 @@ import { PreviewEditor } from "@/components/PreviewEditor";
 export default async function PreviewPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const quote = await prisma.quote.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: { orderBy: { order: "asc" } } },
   });
   if (!quote || quote.companyId !== user.companyId) notFound();

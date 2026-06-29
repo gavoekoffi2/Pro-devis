@@ -6,7 +6,7 @@ import { nextQuoteNumber } from "@/lib/materials";
 // Duplique un devis existant (nouveau numéro, statut brouillon).
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let user;
   try {
@@ -15,8 +15,9 @@ export async function POST(
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
   const companyId = user.companyId!;
+  const { id } = await params;
   const src = await prisma.quote.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: true },
   });
   if (!src || src.companyId !== companyId) {

@@ -10,10 +10,11 @@ export const dynamic = "force-dynamic";
 export default async function PublicQuote({
   params,
 }: {
-  params: { publicId: string };
+  params: Promise<{ publicId: string }>;
 }) {
+  const { publicId } = await params;
   const quote = await prisma.quote.findUnique({
-    where: { publicId: params.publicId },
+    where: { publicId },
     include: { items: { orderBy: { order: "asc" } }, company: true },
   });
   if (!quote || !quote.company) notFound();
@@ -33,7 +34,7 @@ export default async function PublicQuote({
         </div>
 
         <div className="mt-4">
-          <PublicQuoteActions publicId={params.publicId} status={quote.status} />
+          <PublicQuoteActions publicId={publicId} status={quote.status} />
         </div>
       </div>
       <PrintButton />

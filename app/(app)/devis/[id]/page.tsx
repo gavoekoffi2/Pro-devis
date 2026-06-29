@@ -16,11 +16,12 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 export default async function QuoteDetail({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   const quote = await prisma.quote.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: { orderBy: { order: "asc" } } },
   });
   if (!quote || quote.companyId !== user!.companyId) notFound();

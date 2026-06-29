@@ -5,16 +5,17 @@ import { buildQuoteView } from "@/lib/build-view";
 import { QuoteDocument, PAPER_WIDTH } from "@/components/templates";
 import { PrintButton } from "@/components/PrintButton";
 
-export default async function PrintQuote({
+export default async function PrintQuotePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const quote = await prisma.quote.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: { orderBy: { order: "asc" } } },
   });
   if (!quote || quote.companyId !== user.companyId) notFound();

@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma";
 // Acceptation / refus d'un devis par le client via le lien public (sans compte).
 export async function POST(
   req: Request,
-  { params }: { params: { publicId: string } }
+  { params }: { params: Promise<{ publicId: string }> }
 ) {
+  const { publicId } = await params;
   const quote = await prisma.quote.findUnique({
-    where: { publicId: params.publicId },
+    where: { publicId },
   });
   if (!quote) {
     return NextResponse.json({ error: "Devis introuvable" }, { status: 404 });

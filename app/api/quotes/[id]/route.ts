@@ -11,7 +11,7 @@ async function ownedQuote(id: string, companyId: string) {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let user;
   try {
@@ -19,7 +19,8 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const quote = await ownedQuote(params.id, user.companyId!);
+  const { id } = await params;
+  const quote = await ownedQuote(id, user.companyId!);
   if (!quote) {
     return NextResponse.json({ error: "Introuvable" }, { status: 404 });
   }
@@ -126,7 +127,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let user;
   try {
@@ -134,7 +135,8 @@ export async function DELETE(
   } catch {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const quote = await ownedQuote(params.id, user.companyId!);
+  const { id } = await params;
+  const quote = await ownedQuote(id, user.companyId!);
   if (!quote) {
     return NextResponse.json({ error: "Introuvable" }, { status: 404 });
   }
