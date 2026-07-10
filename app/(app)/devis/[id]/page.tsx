@@ -109,6 +109,11 @@ export default async function QuoteDetail({
         status={quote.status}
         whatsapp={quote.clientPhone || company.whatsapp}
         shareText={shareText}
+        publicId={quote.publicId}
+        clientName={quote.clientName}
+        companyName={company.name}
+        quoteNumber={quote.number}
+        totalLabel={formatMoney(quote.total, quote.currency)}
       />
 
       <QuoteManage

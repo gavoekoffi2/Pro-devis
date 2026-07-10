@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { nextQuoteNumber } from "@/lib/materials";
 import { computeTotals, type ComputedLine } from "@/lib/calc";
 import { sanitizeText, sanitizeRichText, sanitizeString } from "@/lib/sanitize";
+import { canCreateQuote, FREE_MONTHLY_LIMIT, type PlanKey } from "@/lib/plans";
 
 export async function GET() {
   let user;
@@ -30,19 +31,18 @@ export async function POST(req: Request) {
   const company = user.company!;
   const companyId = company.id;
 
-  // Limite plan gratuit : 3 devis / mois civil
-  if (user.plan === "FREE") {
+  // Limite selon le plan (source unique : lib/plans.ts)
+  {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
     const used = await prisma.quote.count({
       where: { companyId, createdAt: { gte: startOfMonth } },
     });
-    if (used >= 3) {
+    if (!canCreateQuote(user.plan as PlanKey, used)) {
       return NextResponse.json(
         {
-          error:
-            "Limite du plan gratuit atteinte (3 devis/mois). Passez au plan Pro pour des devis illimités.",
+          error: `Limite du plan gratuit atteinte (${FREE_MONTHLY_LIMIT} devis/mois). Passez au plan Pro pour des devis illimités.`,
           code: "PLAN_LIMIT",
         },
         { status: 402 }
