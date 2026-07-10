@@ -6,6 +6,14 @@ import { useRouter } from "next/navigation";
 import { Monogram } from "@/components/Monogram";
 import { BRAND_COLORS } from "@/lib/brand";
 
+function PwHint({ ok, children }: { ok: boolean; children: React.ReactNode }) {
+  return (
+    <li className={ok ? "text-green-600" : "text-slate-400"}>
+      {ok ? "✓" : "○"} {children}
+    </li>
+  );
+}
+
 const TRADES = [
   { key: "maconnerie", name: "Maçonnerie", icon: "🧱" },
   { key: "menuiserie-alu", name: "Menuiserie alu", icon: "🪟" },
@@ -35,8 +43,21 @@ export default function RegisterPage() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Critères du mot de passe (miroir des règles serveur)
+  const pw = form.password;
+  const pwChecks = {
+    length: pw.length >= 12,
+    upper: /[A-Z]/.test(pw),
+    digit: /\d/.test(pw),
+  };
+  const pwValid = pwChecks.length && pwChecks.upper && pwChecks.digit;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!pwValid) {
+      setError("Le mot de passe ne respecte pas les critères de sécurité.");
+      return;
+    }
     setError("");
     setLoading(true);
     const res = await fetch("/api/auth/register", {
@@ -209,11 +230,22 @@ export default function RegisterPage() {
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
               required
-              minLength={6}
+              minLength={12}
+              autoComplete="new-password"
             />
+            {form.password.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                <PwHint ok={pwChecks.length}>12 caractères</PwHint>
+                <PwHint ok={pwChecks.upper}>1 majuscule</PwHint>
+                <PwHint ok={pwChecks.digit}>1 chiffre</PwHint>
+              </ul>
+            )}
           </div>
 
-          <button className="btn-primary w-full" disabled={loading}>
+          <button
+            className="btn-primary w-full"
+            disabled={loading || !pwValid}
+          >
             {loading ? "Création…" : "Créer mon compte"}
           </button>
 
