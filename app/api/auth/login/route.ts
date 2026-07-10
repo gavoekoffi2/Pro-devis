@@ -30,9 +30,10 @@ export async function POST(req: Request) {
 
   // Anti-timing / anti-énumération : on exécute TOUJOURS une comparaison bcrypt,
   // même si l'utilisateur n'existe pas, pour que le temps de réponse ne révèle
-  // pas l'existence d'un email. Le hash factice a le même coût qu'un vrai.
+  // pas l'existence d'un email. Ce hash factice est un VRAI hash bcrypt valide
+  // (coût 10) : la comparaison effectue donc le même calcul qu'un vrai hash.
   const DUMMY_HASH =
-    "$2a$10$C6UzMDM.H6dfI/f/IKcEeO3lJc5Y1Uu0j0Xh7Q0uKf7q1M8kD8pW";
+    "$2a$10$W03B9OmzQa63tJSsr6taIeTKFHVVnfk.yfoBt6pG30CchtQn5gKtW";
   const valid = await verifyPassword(
     password,
     user?.passwordHash ?? DUMMY_HASH
