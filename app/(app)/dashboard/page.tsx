@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
 import { FREE_MONTHLY_LIMIT } from "@/lib/plans";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: "Brouillon", cls: "bg-slate-100 text-slate-600" },
@@ -20,7 +21,7 @@ export default async function DashboardPage() {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const [quotes, totalAgg, accepted, refusedCount, pending, monthCount] =
+  const [quotes, totalAgg, accepted, refusedCount, pending, monthCount, sharedCount] =
     await Promise.all([
       prisma.quote.findMany({
         where: { companyId },
@@ -42,7 +43,15 @@ export default async function DashboardPage() {
       prisma.quote.count({
         where: { companyId, createdAt: { gte: startOfMonth } },
       }),
+      prisma.quote.count({
+        where: { companyId, publicId: { not: null } },
+      }),
     ]);
+
+  // État d'onboarding : profil renseigné, premier devis, premier partage.
+  const hasProfile = Boolean(company.whatsapp || company.phone);
+  const hasQuote = totalAgg._count > 0;
+  const hasShared = sharedCount > 0;
 
   const cur = company.currency;
 
@@ -83,6 +92,13 @@ export default async function DashboardPage() {
           + Nouveau devis
         </Link>
       </div>
+
+      {/* Guide de démarrage (se masque une fois complété) */}
+      <OnboardingChecklist
+        hasProfile={hasProfile}
+        hasQuote={hasQuote}
+        hasShared={hasShared}
+      />
 
       {/* Quota plan gratuit */}
       {isFree && (
