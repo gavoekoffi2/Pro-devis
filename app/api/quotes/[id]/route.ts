@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { computeTotals, type ComputedLine } from "@/lib/calc";
+import { sanitizeText, sanitizeRichText, sanitizeString } from "@/lib/sanitize";
 
 async function ownedQuote(id: string, companyId: string) {
   const q = await prisma.quote.findUnique({ where: { id } });
@@ -50,19 +51,15 @@ export async function PATCH(
   if (body.paperSize === "A4" || body.paperSize === "A5")
     data.paperSize = body.paperSize;
 
-  // Textes éditables
-  for (const f of [
-    "clientName",
-    "clientPhone",
-    "siteAddress",
-    "projectDescription",
-    "workLabel",
-    "specialInstructions",
-    "paymentTerms",
-    "notes",
-  ] as const) {
-    if (typeof body[f] === "string") data[f] = body[f];
-  }
+  // Textes éditables (avec sanitization)
+  if (typeof body.clientName === "string") data.clientName = sanitizeText(body.clientName);
+  if (typeof body.clientPhone === "string") data.clientPhone = sanitizeString(body.clientPhone, 20);
+  if (typeof body.siteAddress === "string") data.siteAddress = sanitizeText(body.siteAddress);
+  if (typeof body.projectDescription === "string") data.projectDescription = sanitizeRichText(body.projectDescription);
+  if (typeof body.workLabel === "string") data.workLabel = sanitizeText(body.workLabel);
+  if (typeof body.specialInstructions === "string") data.specialInstructions = sanitizeRichText(body.specialInstructions);
+  if (typeof body.paymentTerms === "string") data.paymentTerms = sanitizeRichText(body.paymentTerms);
+  if (typeof body.notes === "string") data.notes = sanitizeRichText(body.notes);
   if (body.validityDays != null) data.validityDays = Number(body.validityDays);
 
   // Lignes éditées → on remplace les items et recalcule les totaux

@@ -243,6 +243,8 @@ model Quote {
 
   @@index([companyId])
   @@index([clientId])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
 }
 
 model QuoteItem {

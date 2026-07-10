@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { nextQuoteNumber } from "@/lib/materials";
 import { computeTotals, type ComputedLine } from "@/lib/calc";
+import { sanitizeText, sanitizeRichText, sanitizeString } from "@/lib/sanitize";
 
 export async function GET() {
   let user;
@@ -75,15 +76,15 @@ export async function POST(req: Request) {
 
   const cleanLines = (lines as any[])
     .map((l, i) => ({
-      designation: String(l.designation ?? "").slice(0, 200),
-      unit: String(l.unit ?? "pièce"),
+      designation: sanitizeText(String(l.designation ?? "")),
+      unit: sanitizeString(String(l.unit ?? "pièce"), 50),
       quantity: Number(l.quantity) || 0,
       unitPrice: Number(l.unitPrice) || 0,
       total: Math.round((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)),
       kind: (["MATERIAL", "LABOR", "TRANSPORT", "OTHER"].includes(l.kind)
         ? l.kind
         : "MATERIAL") as ComputedLine["kind"],
-      section: l.section ? String(l.section).slice(0, 120) : null,
+      section: l.section ? sanitizeText(String(l.section)) : null,
       order: i,
     }))
     .filter((l) => l.designation && l.quantity > 0);
@@ -116,20 +117,20 @@ export async function POST(req: Request) {
       number,
       companyId,
       clientId,
-      clientName: clientName || null,
-      clientPhone: clientPhone || null,
-      clientAddress: clientAddress || null,
-      projectDescription: projectDescription || null,
-      siteAddress: siteAddress || null,
-      tradeKey: tradeKey || null,
-      workLabel: workLabel || null,
+      clientName: sanitizeText(clientName) || null,
+      clientPhone: sanitizeString(clientPhone, 20) || null,
+      clientAddress: sanitizeText(clientAddress) || null,
+      projectDescription: sanitizeRichText(projectDescription) || null,
+      siteAddress: sanitizeText(siteAddress) || null,
+      tradeKey: sanitizeString(tradeKey, 50) || null,
+      workLabel: sanitizeText(workLabel) || null,
       workTypeId: workTypeId || null,
       status: "SENT",
       currency: company.currency,
-      paymentTerms: paymentTerms ?? company.paymentTerms,
+      paymentTerms: sanitizeRichText(paymentTerms ?? company.paymentTerms) || null,
       validityDays: validityDays ?? company.validityDays,
-      notes: notes || null,
-      specialInstructions: specialInstructions || null,
+      notes: sanitizeRichText(notes) || null,
+      specialInstructions: sanitizeRichText(specialInstructions) || null,
       publicId: randomUUID(),
       ...totals,
       items: {

@@ -4,9 +4,42 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
 const COOKIE = "pd_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "dev-secret-change-me"
-);
+
+let cachedSecret: Uint8Array | null = null;
+
+/**
+ * Résout le secret de signature JWT — évalué paresseusement (au premier usage,
+ * pas à l'import) pour ne pas casser le build Next.js quand la variable n'est
+ * pas encore disponible. En production, un secret fort est obligatoire.
+ */
+function getAuthSecret(): Uint8Array {
+  if (cachedSecret) return cachedSecret;
+
+  const secret = process.env.AUTH_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!secret) {
+    if (isProd) {
+      throw new Error(
+        "FATAL: AUTH_SECRET must be set in production. Set a strong 32+ character secret."
+      );
+    }
+    console.warn(
+      "⚠️  Using development-only AUTH_SECRET. Set AUTH_SECRET in .env for security."
+    );
+    cachedSecret = new TextEncoder().encode("dev-secret-insecure-do-not-use");
+    return cachedSecret;
+  }
+
+  if (isProd && secret.length < 32) {
+    throw new Error(
+      "FATAL: AUTH_SECRET must be at least 32 characters for production security."
+    );
+  }
+
+  cachedSecret = new TextEncoder().encode(secret);
+  return cachedSecret;
+}
 
 export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, 10);
@@ -21,7 +54,7 @@ export async function createSession(userId: string) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(getAuthSecret());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE, token, {
@@ -43,7 +76,7 @@ async function getUserId(): Promise<string | null> {
   const token = cookieStore.get(COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getAuthSecret());
     return (payload.uid as string) ?? null;
   } catch {
     return null;

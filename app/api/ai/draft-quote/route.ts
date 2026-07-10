@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { aiEnabled, aiDraftQuote } from "@/lib/ai";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   let user;
@@ -11,6 +12,15 @@ export async function POST(req: Request) {
   }
   if (!aiEnabled()) {
     return NextResponse.json({ error: "IA non configurée" }, { status: 503 });
+  }
+
+  // Anti-abus / maîtrise des coûts IA : max 15 requêtes / 10 min par utilisateur.
+  const rl = rateLimit(`ai-draft:${user.id}`, 15, 10 * 60 * 1000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes IA. Patientez un instant." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
   }
 
   const body = await req.json().catch(() => ({}));
@@ -36,8 +46,11 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ lines });
   } catch (e: any) {
+    // On journalise le détail côté serveur, mais on ne l'expose jamais au client
+    // (évite de divulguer l'infrastructure IA / des messages d'erreur internes).
+    console.error("[ai/draft-quote] échec:", e?.message || e);
     return NextResponse.json(
-      { error: "Service IA indisponible pour le moment.", detail: String(e?.message || e).slice(0, 120) },
+      { error: "Service IA indisponible pour le moment." },
       { status: 502 }
     );
   }
