@@ -57,8 +57,14 @@ export function PublicQuoteActions({
 
   return (
     <div className="no-print rounded-2xl bg-white border border-slate-200 shadow-sm p-5 space-y-3">
-      <div className="font-semibold text-center">
-        Vous validez ce devis ?
+      <div className="text-center">
+        <div className="font-semibold text-slate-900">
+          Vous validez ce devis ?
+        </div>
+        <p className="text-sm text-slate-500 mt-1">
+          Indiquez votre nom, puis validez votre accord. C'est simple, gratuit et
+          sans engagement de compte.
+        </p>
       </div>
       {error && (
         <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-2">
@@ -71,22 +77,23 @@ export function PublicQuoteActions({
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => respond("accept")}
-          disabled={busy}
-          className="btn-accent"
-        >
-          ✓ J'accepte le devis
-        </button>
-        <button
-          onClick={() => respond("refuse")}
-          disabled={busy}
-          className="btn-ghost"
-        >
-          Refuser
-        </button>
-      </div>
+      <button
+        onClick={() => respond("accept")}
+        disabled={busy}
+        className="btn-accent w-full text-lg"
+      >
+        {busy ? "Validation…" : "✓ J'accepte ce devis"}
+      </button>
+      <button
+        onClick={() => respond("refuse")}
+        disabled={busy}
+        className="w-full text-sm text-slate-400 hover:text-slate-600 py-1"
+      >
+        Je ne suis pas intéressé
+      </button>
+      <p className="text-center text-[11px] text-slate-400">
+        🔒 Votre accord est horodaté et transmis directement à l'artisan.
+      </p>
     </div>
   );
 }

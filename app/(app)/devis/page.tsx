@@ -44,13 +44,28 @@ export default async function QuotesPage({
     orderBy: { createdAt: "desc" },
   });
 
+  // Lien d'export CSV conservant les filtres/recherche courants.
+  const exportParams = new URLSearchParams();
+  if (q) exportParams.set("q", q);
+  if (f) exportParams.set("f", f);
+  const exportHref = `/api/quotes/export${
+    exportParams.toString() ? `?${exportParams}` : ""
+  }`;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mes devis</h1>
-        <Link href="/devis/nouveau" className="btn-accent">
-          + Nouveau
-        </Link>
+        <div className="flex items-center gap-2">
+          {quotes.length > 0 && (
+            <a href={exportHref} className="btn-ghost btn-sm" title="Exporter en CSV (Excel)">
+              ⬇️ Exporter
+            </a>
+          )}
+          <Link href="/devis/nouveau" className="btn-accent">
+            + Nouveau
+          </Link>
+        </div>
       </div>
 
       <form method="get" className="flex gap-2">
