@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { sanitizeText, sanitizeString } from "@/lib/sanitize";
 
 export async function PATCH(
   req: Request,
@@ -21,11 +22,12 @@ export async function PATCH(
   const client = await prisma.client.update({
     where: { id },
     data: {
-      name: body.name ?? existing.name,
-      phone: body.phone ?? existing.phone,
-      whatsapp: body.whatsapp ?? existing.whatsapp,
-      address: body.address ?? existing.address,
-      notes: body.notes ?? existing.notes,
+      name: body.name != null ? sanitizeText(body.name) : existing.name,
+      phone: body.phone != null ? sanitizeString(body.phone, 20) : existing.phone,
+      whatsapp:
+        body.whatsapp != null ? sanitizeString(body.whatsapp, 20) : existing.whatsapp,
+      address: body.address != null ? sanitizeText(body.address) : existing.address,
+      notes: body.notes != null ? sanitizeText(body.notes) : existing.notes,
     },
   });
   return NextResponse.json({ client });

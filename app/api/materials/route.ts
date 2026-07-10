@@ -73,14 +73,18 @@ export async function POST(req: Request) {
     where: { key, companyId },
   });
 
+  // Bornage : pas de prix négatif ; marge dans une plage raisonnable.
+  const safeUnitPrice = Math.max(0, Number(unitPrice) || 0);
+  const safeMargin = Math.min(1000, Math.max(0, Number(margin) || 0));
+
   const data = {
     key,
     name: base.name,
     category: base.category,
     kind: base.kind,
     unit: base.unit,
-    unitPrice: Number(unitPrice) || 0,
-    margin: Number(margin) || 0,
+    unitPrice: safeUnitPrice,
+    margin: safeMargin,
     tradeId: base.tradeId,
     companyId,
   };

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { sanitizeText, sanitizeString } from "@/lib/sanitize";
 
 export async function GET() {
   let user;
@@ -24,17 +25,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
   const body = await req.json().catch(() => ({}));
-  if (!body.name) {
+  const name = sanitizeText(body.name);
+  if (!name) {
     return NextResponse.json({ error: "Nom requis" }, { status: 400 });
   }
+  const phone = sanitizeString(body.phone, 20);
   const client = await prisma.client.create({
     data: {
       companyId: user.companyId!,
-      name: body.name,
-      phone: body.phone || null,
-      whatsapp: body.whatsapp || body.phone || null,
-      address: body.address || null,
-      notes: body.notes || null,
+      name,
+      phone: phone || null,
+      whatsapp: sanitizeString(body.whatsapp, 20) || phone || null,
+      address: sanitizeText(body.address) || null,
+      notes: sanitizeText(body.notes) || null,
     },
   });
   return NextResponse.json({ client });
