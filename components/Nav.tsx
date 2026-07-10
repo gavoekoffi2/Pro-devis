@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+// Liens de la navigation mobile (barre du bas, 5 colonnes).
 const LINKS = [
   { href: "/dashboard", label: "Accueil", icon: "🏠" },
   { href: "/devis", label: "Devis", icon: "📄" },
@@ -10,6 +11,9 @@ const LINKS = [
   { href: "/materiaux", label: "Prix", icon: "🏷️" },
   { href: "/parametres", label: "Profil", icon: "⚙️" },
 ];
+
+// Liens supplémentaires affichés uniquement sur le menu latéral (desktop).
+const SIDE_ONLY_LINKS = [{ href: "/equipe", label: "Équipe", icon: "🧑‍🤝‍🧑" }];
 
 export function TopBar({ companyName }: { companyName: string }) {
   const router = useRouter();
@@ -66,7 +70,7 @@ export function SideNav() {
   const path = usePathname();
   return (
     <nav className="no-print hidden sm:flex flex-col gap-1 w-48 shrink-0">
-      {LINKS.map((l) => {
+      {[...LINKS, ...SIDE_ONLY_LINKS].map((l) => {
         const active = path === l.href || path.startsWith(l.href + "/");
         return (
           <Link

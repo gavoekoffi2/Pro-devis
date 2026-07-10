@@ -32,3 +32,18 @@ export function canCreateQuote(plan: PlanKey, usedThisMonth: number): boolean {
   const remaining = remainingQuotes(plan, usedThisMonth);
   return remaining == null || remaining > 0;
 }
+
+/**
+ * L'accès multi-utilisateurs (équipe) est une fonctionnalité payante.
+ * Réservé aux plans Pro et Entreprise.
+ */
+export function canUseTeam(plan: PlanKey): boolean {
+  return plan === "PRO" || plan === "ENTERPRISE";
+}
+
+/** Nombre maximum de membres d'équipe selon le plan. */
+export function maxTeamMembers(plan: PlanKey): number {
+  if (plan === "ENTERPRISE") return 50;
+  if (plan === "PRO") return 5;
+  return 1;
+}

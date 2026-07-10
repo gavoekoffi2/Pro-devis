@@ -77,7 +77,7 @@ export default async function DashboardPage() {
     { label: "En attente", value: pending, icon: "⏳" },
   ];
 
-  const isFree = user!.plan === "FREE";
+  const isFree = company.plan === "FREE";
   const remaining = Math.max(0, FREE_MONTHLY_LIMIT - monthCount);
   const quotaPct = Math.min(100, (monthCount / FREE_MONTHLY_LIMIT) * 100);
 

@@ -99,3 +99,8 @@ export async function requireUser() {
   if (!user) throw new Error("UNAUTHENTICATED");
   return user;
 }
+
+/** Vrai si le rôle d'entreprise permet de gérer l'équipe (OWNER ou ADMIN). */
+export function canManageTeam(companyRole: string): boolean {
+  return companyRole === "OWNER" || companyRole === "ADMIN";
+}

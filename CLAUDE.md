@@ -73,6 +73,17 @@ prisma/           schema + seed (catalogue data-driven)
 ### Plans SaaS
 - Limites centralisées dans `lib/plans.ts`. Ne jamais recoder « 3 devis/mois »
   en dur ailleurs — importer `FREE_MONTHLY_LIMIT` / `canCreateQuote`.
+- L'abonnement (`plan`) est porté par **Company**, pas par User : toute l'équipe
+  partage le même plan.
+
+### Accès multi-utilisateurs (équipe)
+- Une entreprise peut avoir plusieurs `User`, chacun avec un `companyRole`
+  (`OWNER` / `ADMIN` / `MEMBER`). Le créateur est `OWNER`.
+- Gestion via `/equipe` ; API sous `/api/team/*`. Seuls OWNER/ADMIN gèrent
+  l'équipe (`canManageTeam`). Fonctionnalité réservée aux plans payants
+  (`canUseTeam`), quota par plan (`maxTeamMembers`).
+- Invitation par lien signé (`Invitation.token`, expiration 7 j) ; le
+  collaborateur crée son compte via `/rejoindre/[token]`.
 
 ## Vérifications avant commit
 

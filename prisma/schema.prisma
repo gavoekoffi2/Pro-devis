@@ -25,21 +25,31 @@ enum Plan {
   ENTERPRISE
 }
 
+// Rôle de l'utilisateur au sein de son entreprise (accès multi-utilisateurs).
+enum CompanyRole {
+  OWNER  // propriétaire (créateur), tous les droits
+  ADMIN  // peut gérer l'équipe et les devis
+  MEMBER // peut créer/éditer des devis, pas de gestion d'équipe
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   passwordHash String
-  role         Role     @default(USER)
-  plan         Plan     @default(FREE)
-  createdAt    DateTime @default(now())
+  role         Role        @default(USER)
+  companyRole  CompanyRole @default(OWNER) // rôle dans l'entreprise
+  createdAt    DateTime    @default(now())
 
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
+
+  @@index([companyId])
 }
 
 model Company {
   id           String   @id @default(cuid())
   name         String
+  plan         Plan     @default(FREE) // abonnement partagé par toute l'équipe
   logoUrl      String?
   headerImageUrl String? // en-tête déjà prêt importé par l'utilisateur
   phone        String?
@@ -67,10 +77,29 @@ model Company {
   footerNote   String?  @default("Merci de votre confiance.")
   createdAt    DateTime @default(now())
 
-  users     User[]
-  clients   Client[]
-  quotes    Quote[]
-  materials Material[]
+  users       User[]
+  clients     Client[]
+  quotes      Quote[]
+  materials   Material[]
+  invitations Invitation[]
+}
+
+// Invitation d'un collaborateur à rejoindre une entreprise (multi-utilisateurs).
+model Invitation {
+  id        String      @id @default(cuid())
+  email     String
+  token     String      @unique // jeton du lien d'invitation
+  role      CompanyRole @default(MEMBER)
+  invitedBy String? // id de l'utilisateur qui a invité
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime    @default(now())
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  @@index([companyId])
+  @@index([token])
 }
 
 // ─────────────────────────────────────────────────────────────

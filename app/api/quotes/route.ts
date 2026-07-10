@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const used = await prisma.quote.count({
       where: { companyId, createdAt: { gte: startOfMonth } },
     });
-    if (!canCreateQuote(user.plan as PlanKey, used)) {
+    if (!canCreateQuote(company.plan as PlanKey, used)) {
       return NextResponse.json(
         {
           error: `Limite du plan gratuit atteinte (${FREE_MONTHLY_LIMIT} devis/mois). Passez au plan Pro pour des devis illimités.`,
