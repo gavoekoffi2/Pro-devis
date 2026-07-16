@@ -3,15 +3,9 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
+import { statusMeta, expiryDate, isExpired } from "@/lib/status";
 import { QuoteActions } from "@/components/QuoteActions";
 import { QuoteManage } from "@/components/QuoteManage";
-
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  DRAFT: { label: "Brouillon", cls: "bg-slate-100 text-slate-600" },
-  SENT: { label: "En attente", cls: "bg-amber-100 text-amber-700" },
-  ACCEPTED: { label: "Accepté", cls: "bg-green-100 text-green-700" },
-  REFUSED: { label: "Refusé", cls: "bg-red-100 text-red-700" },
-};
 
 export default async function QuoteDetail({
   params,
@@ -27,7 +21,9 @@ export default async function QuoteDetail({
   if (!quote || quote.companyId !== user!.companyId) notFound();
 
   const company = user!.company!;
-  const meta = STATUS_META[quote.status];
+  const meta = statusMeta(quote);
+  const expired = isExpired(quote);
+  const validUntil = expiryDate(quote.createdAt, quote.validityDays);
 
   const shareText = `Bonjour, voici votre devis ${quote.number} de ${company.name} d'un montant de ${formatMoney(
     quote.total,
@@ -43,12 +39,21 @@ export default async function QuoteDetail({
         <span className={`badge ${meta.cls}`}>{meta.label}</span>
       </div>
 
+      {expired && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          ⚠️ Ce devis a dépassé sa date de validité (
+          {validUntil.toLocaleDateString("fr-FR")}). Dupliquez-le pour en
+          proposer une version à jour au client.
+        </div>
+      )}
+
       <div className="card p-5">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-xl font-bold">{quote.number}</h1>
             <p className="text-slate-500">
-              {new Date(quote.createdAt).toLocaleDateString("fr-FR")}
+              {new Date(quote.createdAt).toLocaleDateString("fr-FR")} · valable
+              jusqu'au {validUntil.toLocaleDateString("fr-FR")}
             </p>
           </div>
           <div className="text-right">
@@ -71,6 +76,14 @@ export default async function QuoteDetail({
             <div className="text-slate-500">{quote.projectDescription}</div>
           </div>
         </div>
+
+        {quote.acceptedAt && (
+          <div className="mt-4 rounded-xl bg-green-50 px-4 py-2 text-sm text-green-800">
+            ✅ Accepté en ligne le{" "}
+            {new Date(quote.acceptedAt).toLocaleDateString("fr-FR")}
+            {quote.signerName ? ` par ${quote.signerName}` : ""}
+          </div>
+        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -113,6 +126,7 @@ export default async function QuoteDetail({
 
       <QuoteManage
         id={quote.id}
+        number={quote.number}
         isInvoice={quote.isInvoice}
         total={quote.total}
         amountPaid={quote.amountPaid}
@@ -120,6 +134,9 @@ export default async function QuoteDetail({
         currency={quote.currency}
         publicId={quote.publicId}
         shareMessage={shareText}
+        clientName={quote.clientName}
+        clientPhone={quote.clientPhone}
+        companyName={company.name}
       />
     </div>
   );

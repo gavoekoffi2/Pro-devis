@@ -46,8 +46,17 @@ génère un devis professionnel imprimable / partageable sur WhatsApp.
 - **PWA** : application installable sur téléphone, tolérante au hors-ligne.
 - **Recherche & filtres** sur les devis et les clients.
 - **Historique** des devis : liste, détail, statut, duplication, suppression.
-- **Mini-CRM clients**.
-- **Tableau de bord** : nombre de devis, montant total, acceptés, en attente.
+- **Mini-CRM clients** avec historique (nombre de devis, montant cumulé) et
+  création de devis pré-rempli en un clic.
+- **Tableau de bord orienté action** : montant accepté, encaissé, taux
+  d'acceptation, devis **à relancer** (sans réponse depuis 3 jours) et
+  paiements **à encaisser** — relance WhatsApp en 1 clic.
+- **Reçu de paiement WhatsApp** : après un acompte ou un solde, envoyez la
+  preuve de paiement au client en un clic.
+- **Devis expirés** détectés automatiquement (badge + alerte, suggestion de
+  duplication).
+- **Matériaux personnalisés** : ajoutez vos propres articles au catalogue,
+  en plus de la surcharge des prix locaux.
 - **Plans SaaS** : gratuit (3 devis/mois), Pro (illimité), Entreprise.
 
 ---
@@ -138,11 +147,22 @@ prisma/
 
 ---
 
+## 🔒 Notes de production
+
+- `AUTH_SECRET` est **obligatoire** en production (min. 16 caractères) ;
+  l'application refuse de signer des sessions avec le secret par défaut.
+- Les numéros de devis sont uniques par entreprise (contrainte en base) et
+  ne sont jamais réutilisés après suppression du dernier devis seulement.
+- Les endpoints d'authentification et le lien public sont protégés par un
+  limiteur de débit en mémoire (prévoir Redis pour du multi-instance).
+- Le déploiement GitHub Actions synchronise le schéma (`prisma db push`)
+  et le catalogue métiers (seed idempotent) avant chaque mise en production.
+
 ## 🔜 Évolutions prévues
 
 - Paiement Mobile Money / Flooz / TMoney pour les abonnements.
+- Réinitialisation de mot de passe (nécessite un service d'email/SMS).
 - Recherche automatique des prix fournisseurs.
 - Upload de logo (stockage objet) au lieu d'une URL.
 - Espace admin (métiers, formules, abonnements, statistiques).
-- Conversion devis → facture.
 - Application mobile native (Expo).

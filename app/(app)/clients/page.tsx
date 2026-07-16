@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { formatMoney } from "@/lib/calc";
 
 type Client = {
   id: string;
@@ -8,6 +10,8 @@ type Client = {
   phone?: string | null;
   address?: string | null;
   notes?: string | null;
+  quoteCount: number;
+  quoteTotal: number;
 };
 
 export default function ClientsPage() {
@@ -17,12 +21,18 @@ export default function ClientsPage() {
   const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
 
   async function load() {
-    const r = await fetch("/api/clients");
-    const d = await r.json();
-    setClients(d.clients || []);
-    setLoading(false);
+    try {
+      const r = await fetch("/api/clients");
+      const d = await r.json();
+      setClients(d.clients || []);
+    } catch {
+      setError("Impossible de charger les clients. Vérifiez votre connexion.");
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     load();
@@ -30,21 +40,32 @@ export default function ClientsPage() {
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name) return;
+    if (!form.name.trim()) return;
     setSaving(true);
-    await fetch("/api/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setSaving(false);
-    setForm({ name: "", phone: "", address: "", notes: "" });
-    setShowForm(false);
-    load();
+    setError("");
+    try {
+      const r = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setError(d.error || "Enregistrement impossible.");
+        return;
+      }
+      setForm({ name: "", phone: "", address: "", notes: "" });
+      setShowForm(false);
+      load();
+    } catch {
+      setError("Enregistrement impossible. Vérifiez votre connexion.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function remove(id: string) {
-    if (!confirm("Supprimer ce client ?")) return;
+    if (!confirm("Supprimer ce client ? Ses devis existants seront conservés.")) return;
     await fetch(`/api/clients/${id}`, { method: "DELETE" });
     load();
   }
@@ -57,6 +78,12 @@ export default function ClientsPage() {
           {showForm ? "Fermer" : "+ Client"}
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={add} className="card p-5 space-y-3">
@@ -129,36 +156,55 @@ export default function ClientsPage() {
               );
             })
             .map((c) => (
-            <div
-              key={c.id}
-              className="flex items-center justify-between px-5 py-4"
-            >
-              <div className="min-w-0">
-                <div className="font-semibold">{c.name}</div>
-                <div className="text-sm text-slate-500">
-                  {c.phone} {c.address ? `· ${c.address}` : ""}
+              <div
+                key={c.id}
+                className="flex items-center justify-between px-5 py-4 gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">{c.name}</div>
+                  <div className="text-sm text-slate-500">
+                    {c.phone} {c.address ? `· ${c.address}` : ""}
+                  </div>
+                  {c.quoteCount > 0 ? (
+                    <Link
+                      href={`/devis?client=${c.id}`}
+                      className="text-xs text-brand-600 font-medium"
+                    >
+                      {c.quoteCount} devis · {formatMoney(c.quoteTotal)} →
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-slate-400">Aucun devis</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/devis/nouveau?client=${c.id}`}
+                    className="btn-ghost btn-sm"
+                    title="Nouveau devis pour ce client"
+                  >
+                    📄+
+                  </Link>
+                  {c.phone && (
+                    <a
+                      href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-ghost btn-sm"
+                      title="WhatsApp"
+                    >
+                      📲
+                    </a>
+                  )}
+                  <button
+                    onClick={() => remove(c.id)}
+                    className="btn-ghost btn-sm !text-red-600"
+                    title="Supprimer"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {c.phone && (
-                  <a
-                    href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-ghost btn-sm"
-                  >
-                    📲
-                  </a>
-                )}
-                <button
-                  onClick={() => remove(c.id)}
-                  className="btn-ghost btn-sm !text-red-600"
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
     </div>

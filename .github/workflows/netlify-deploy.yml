@@ -37,6 +37,18 @@ jobs:
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
           OPENROUTER_SEARCH_MODEL: ${{ vars.OPENROUTER_SEARCH_MODEL }}
 
+      # Synchronise le schéma et le catalogue métiers (seed idempotent).
+      - name: Sync database schema & catalog
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL missing, skipping database sync."
+            exit 0
+          fi
+          npx prisma db push
+          npx tsx prisma/seed.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Deploy to Netlify
         run: |
           if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then

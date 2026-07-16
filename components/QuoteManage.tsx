@@ -1,17 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/calc";
-
-const PAY_META: Record<string, { label: string; cls: string }> = {
-  UNPAID: { label: "Impayé", cls: "bg-red-100 text-red-700" },
-  PARTIAL: { label: "Acompte versé", cls: "bg-amber-100 text-amber-700" },
-  PAID: { label: "Payé", cls: "bg-green-100 text-green-700" },
-};
+import { PAY_META } from "@/lib/status";
 
 export function QuoteManage({
   id,
+  number,
   isInvoice,
   total,
   amountPaid,
@@ -19,8 +15,12 @@ export function QuoteManage({
   currency,
   publicId,
   shareMessage,
+  clientName,
+  clientPhone,
+  companyName,
 }: {
   id: string;
+  number: string;
   isInvoice: boolean;
   total: number;
   amountPaid: number;
@@ -28,19 +28,21 @@ export function QuoteManage({
   currency: string;
   publicId: string | null;
   shareMessage: string;
+  clientName?: string | null;
+  clientPhone?: string | null;
+  companyName: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(amountPaid);
-  const [link, setLink] = useState<string | null>(
-    publicId ? buildLink(publicId) : null
-  );
+  // Le lien absolu dépend de window.location : on le calcule après montage
+  // pour éviter tout écart serveur/client à l'hydratation.
+  const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function buildLink(pid: string) {
-    if (typeof window === "undefined") return `/d/${pid}`;
-    return `${window.location.origin}/d/${pid}`;
-  }
+  useEffect(() => {
+    if (publicId) setLink(`${window.location.origin}/d/${publicId}`);
+  }, [publicId]);
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
@@ -58,7 +60,7 @@ export function QuoteManage({
     const res = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
     const d = await res.json();
     setBusy(false);
-    if (res.ok) setLink(buildLink(d.publicId));
+    if (res.ok) setLink(`${window.location.origin}/d/${d.publicId}`);
   }
 
   const balance = Math.max(0, total - paid);
@@ -66,6 +68,15 @@ export function QuoteManage({
   const waLink = link
     ? `https://wa.me/?text=${encodeURIComponent(shareMessage + " " + link)}`
     : "#";
+
+  // Reçu de paiement à envoyer au client (preuve d'acompte / de solde).
+  const receiptText = `🧾 REÇU DE PAIEMENT — ${companyName}
+${isInvoice ? "Facture" : "Devis"} ${number}${clientName ? `\nClient : ${clientName}` : ""}
+Montant reçu : ${formatMoney(amountPaid, currency)}
+${balance > 0 ? `Reste à payer : ${formatMoney(balance, currency)}` : "Payé intégralement. Merci !"}
+Date : ${new Date().toLocaleDateString("fr-FR")}`;
+  const receiptNumber = (clientPhone || "").replace(/[^0-9]/g, "");
+  const receiptLink = `https://wa.me/${receiptNumber}?text=${encodeURIComponent(receiptText)}`;
 
   return (
     <div className="space-y-4">
@@ -101,6 +112,7 @@ export function QuoteManage({
             <label className="label">Montant encaissé (acompte/total)</label>
             <input
               type="number"
+              min={0}
               className="input"
               value={paid}
               onChange={(e) => setPaid(parseFloat(e.target.value) || 0)}
@@ -140,6 +152,17 @@ export function QuoteManage({
             Réinitialiser
           </button>
         </div>
+
+        {amountPaid > 0 && (
+          <a
+            href={receiptLink}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary w-full"
+          >
+            🧾 Envoyer le reçu de paiement (WhatsApp)
+          </a>
+        )}
       </div>
 
       {/* Lien client / acceptation en ligne */}

@@ -183,6 +183,9 @@ export function computeTotals(
 /** Formatage monétaire (FCFA par défaut). */
 export function formatMoney(value: number, currency = "FCFA") {
   const n = Math.round(value || 0);
-  const formatted = n.toLocaleString("fr-FR").replace(/ /g, " ");
-  return `${formatted} ${currency}`;
+  // fr-FR utilise l'espace fine insécable (U+202F) comme séparateur de
+  // milliers ; on la remplace par une espace classique pour un rendu fiable
+  // sur toutes les polices (PDF, WhatsApp, impression).
+  const formatted = n.toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");
+  return `${formatted} ${currency}`.trim();
 }

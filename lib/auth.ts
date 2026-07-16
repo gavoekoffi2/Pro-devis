@@ -4,9 +4,27 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
 const COOKIE = "pd_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "dev-secret-change-me"
-);
+
+// Évalué à la première utilisation (pas au chargement du module) pour ne pas
+// casser `next build` quand la variable n'est fournie qu'au runtime.
+let cachedSecret: Uint8Array | null = null;
+function secret(): Uint8Array {
+  if (cachedSecret) return cachedSecret;
+  const s = process.env.AUTH_SECRET;
+  if (s && s.length >= 16) {
+    cachedSecret = new TextEncoder().encode(s);
+    return cachedSecret;
+  }
+  // En production, un secret fort est OBLIGATOIRE : on refuse de servir
+  // des sessions signées avec un secret par défaut connu de tous.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET manquant ou trop court (min. 16 caractères). Définissez-le dans les variables d'environnement."
+    );
+  }
+  cachedSecret = new TextEncoder().encode("dev-secret-change-me");
+  return cachedSecret;
+}
 
 export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, 10);
@@ -21,7 +39,7 @@ export async function createSession(userId: string) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(secret());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE, token, {
@@ -43,7 +61,7 @@ async function getUserId(): Promise<string | null> {
   const token = cookieStore.get(COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret());
     return (payload.uid as string) ?? null;
   } catch {
     return null;

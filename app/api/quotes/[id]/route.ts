@@ -46,7 +46,8 @@ export async function PATCH(
   }
 
   // Présentation
-  if (typeof body.templateId === "string") data.templateId = body.templateId;
+  if (typeof body.templateId === "string")
+    data.templateId = body.templateId.slice(0, 40);
   if (body.paperSize === "A4" || body.paperSize === "A5")
     data.paperSize = body.paperSize;
 
@@ -61,9 +62,11 @@ export async function PATCH(
     "paymentTerms",
     "notes",
   ] as const) {
-    if (typeof body[f] === "string") data[f] = body[f];
+    if (typeof body[f] === "string") data[f] = body[f].slice(0, 2000);
   }
-  if (body.validityDays != null) data.validityDays = Number(body.validityDays);
+  if (body.validityDays != null) {
+    data.validityDays = Math.max(1, Number(body.validityDays) || 30);
+  }
 
   // Lignes éditées → on remplace les items et recalcule les totaux
   let recompute = false;
@@ -72,11 +75,11 @@ export async function PATCH(
     recompute = true;
     cleanLines = (body.lines as any[])
       .map((l, i) => {
-        const quantity = Number(l.quantity) || 0;
-        const unitPrice = Number(l.unitPrice) || 0;
+        const quantity = Math.max(0, Number(l.quantity) || 0);
+        const unitPrice = Math.max(0, Number(l.unitPrice) || 0);
         return {
           designation: String(l.designation ?? "").slice(0, 200),
-          unit: String(l.unit ?? "pièce"),
+          unit: String(l.unit ?? "pièce").slice(0, 30),
           quantity,
           unitPrice,
           total: Math.round(quantity * unitPrice),
@@ -88,15 +91,30 @@ export async function PATCH(
         };
       })
       .filter((l) => l.designation && l.quantity > 0);
+    if (cleanLines.length === 0) {
+      return NextResponse.json(
+        { error: "Le devis doit conserver au moins une ligne valide." },
+        { status: 400 }
+      );
+    }
   }
 
   if (recompute) {
     const taxRate =
-      body.taxRate != null ? Number(body.taxRate) : quote.taxRate;
+      body.taxRate != null ? Math.max(0, Number(body.taxRate) || 0) : quote.taxRate;
     const discount =
-      body.discount != null ? Number(body.discount) : quote.discount;
+      body.discount != null ? Math.max(0, Number(body.discount) || 0) : quote.discount;
     const totals = computeTotals(cleanLines, { discount, taxRate });
     Object.assign(data, totals);
+
+    // Le statut de paiement dépend du nouveau total.
+    const paid =
+      body.amountPaid != null
+        ? Math.max(0, Number(body.amountPaid) || 0)
+        : quote.amountPaid;
+    data.amountPaid = paid;
+    data.paymentStatus =
+      paid <= 0 ? "UNPAID" : paid >= totals.total ? "PAID" : "PARTIAL";
 
     await prisma.$transaction([
       prisma.quoteItem.deleteMany({ where: { quoteId: quote.id } }),

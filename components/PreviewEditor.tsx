@@ -20,6 +20,7 @@ export function PreviewEditor({ quoteId, initialView, templateId, paper }: Props
   const [showEdit, setShowEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   const [fields, setFields] = useState({
     clientName: initialView.clientName ?? "",
@@ -89,23 +90,32 @@ export function PreviewEditor({ quoteId, initialView, templateId, paper }: Props
   async function save(thenPrint = false) {
     setSaving(true);
     setSaved(false);
-    const res = await fetch(`/api/quotes/${quoteId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        templateId: tpl,
-        paperSize: size,
-        ...fields,
-        discount,
-        taxRate,
-        lines,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      router.refresh();
-      if (thenPrint) setTimeout(() => window.print(), 250);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: tpl,
+          paperSize: size,
+          ...fields,
+          discount,
+          taxRate,
+          lines,
+        }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        router.refresh();
+        if (thenPrint) setTimeout(() => window.print(), 250);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error || "Enregistrement impossible.");
+      }
+    } catch {
+      setError("Enregistrement impossible. Vérifiez votre connexion.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -241,6 +251,11 @@ export function PreviewEditor({ quoteId, initialView, templateId, paper }: Props
           </div>
         )}
 
+        {error && (
+          <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-2">
+            {error}
+          </div>
+        )}
         <div className="space-y-2">
           <button onClick={() => save(false)} disabled={saving} className="btn-primary w-full">
             {saving ? "Enregistrement…" : saved ? "✓ Enregistré" : "💾 Enregistrer"}

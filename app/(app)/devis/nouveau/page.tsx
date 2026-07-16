@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatMoney } from "@/lib/calc";
 
 type WorkInput = { key: string; label: string; unit?: string; default?: number };
@@ -34,14 +34,34 @@ type View =
   | "freeLine"
   | "finalize";
 
+type SavedClient = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+};
+
 export default function NewQuotePage() {
+  return (
+    <Suspense
+      fallback={<div className="p-8 text-center text-slate-500">Chargement…</div>}
+    >
+      <NewQuoteWizard />
+    </Suspense>
+  );
+}
+
+function NewQuoteWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [view, setView] = useState<View>("client");
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [savedClients, setSavedClients] = useState<SavedClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [client, setClient] = useState({
+    clientId: "",
     clientName: "",
     clientPhone: "",
     clientAddress: "",
@@ -49,6 +69,18 @@ export default function NewQuotePage() {
     projectDescription: "",
     saveClient: true,
   });
+
+  function pickSavedClient(id: string, list?: SavedClient[]) {
+    const found = (list ?? savedClients).find((c) => c.id === id);
+    setClient((cl) => ({
+      ...cl,
+      clientId: found ? found.id : "",
+      clientName: found?.name ?? cl.clientName,
+      clientPhone: found?.phone ?? cl.clientPhone,
+      clientAddress: found?.address ?? cl.clientAddress,
+      saveClient: found ? false : cl.saveClient,
+    }));
+  }
 
   const [postes, setPostes] = useState<Poste[]>([]);
 
@@ -89,6 +121,17 @@ export default function NewQuotePage() {
       .then((r) => r.json())
       .then((d) => setAiAvailable(!!d.enabled))
       .catch(() => {});
+    // Clients enregistrés : sélection rapide + pré-remplissage via ?client=
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: SavedClient[] = d.clients || [];
+        setSavedClients(list);
+        const preselect = searchParams.get("client");
+        if (preselect) pickSavedClient(preselect, list);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function generateWithAI() {
@@ -229,12 +272,33 @@ export default function NewQuotePage() {
       {view === "client" && (
         <div className="card p-5 space-y-4">
           <h2 className="text-lg font-bold">1. Informations du client</h2>
+          {savedClients.length > 0 && (
+            <div>
+              <label className="label">Client existant (optionnel)</label>
+              <select
+                className="input"
+                value={client.clientId}
+                onChange={(e) => pickSavedClient(e.target.value)}
+              >
+                <option value="">— Nouveau client —</option>
+                {savedClients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.phone ? ` · ${c.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="label">Nom du client *</label>
             <input
               className="input"
               value={client.clientName}
-              onChange={(e) => setClient({ ...client, clientName: e.target.value })}
+              onChange={(e) =>
+                // Modifier le nom = repartir sur un nouveau client.
+                setClient({ ...client, clientName: e.target.value, clientId: "" })
+              }
               placeholder="M. Adjo Komlan"
             />
           </div>
@@ -267,14 +331,18 @@ export default function NewQuotePage() {
               placeholder="Construction d'une maison, rénovation…"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={client.saveClient}
-              onChange={(e) => setClient({ ...client, saveClient: e.target.checked })}
-            />
-            Enregistrer ce client
-          </label>
+          {!client.clientId && (
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={client.saveClient}
+                onChange={(e) =>
+                  setClient({ ...client, saveClient: e.target.checked })
+                }
+              />
+              Enregistrer ce client
+            </label>
+          )}
           <button
             className="btn-primary w-full"
             disabled={!client.clientName}

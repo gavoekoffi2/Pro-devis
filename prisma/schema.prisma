@@ -241,6 +241,7 @@ model Quote {
 
   items QuoteItem[]
 
+  @@unique([companyId, number])
   @@index([companyId])
   @@index([clientId])
 }

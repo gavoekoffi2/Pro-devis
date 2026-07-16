@@ -39,21 +39,22 @@ const BENEFITS = [
   ["📱", "Sur téléphone", "Pensé mobile-first, utilisable sur le chantier."],
 ];
 
-const TESTIMONIALS = [
+// Scénarios concrets d'utilisation (pas de faux témoignages).
+const USE_CASES = [
   {
-    name: "Kossi A.",
-    job: "Maçon, Lomé",
-    text: "Avant je faisais mes devis à la main. Maintenant je les fais devant le client en 2 minutes. Ça m'a fait gagner des chantiers.",
+    icon: "🧱",
+    title: "Devant le client, sur le chantier",
+    text: "Un mur de clôture à chiffrer ? Entrez les dimensions sur votre téléphone : matériaux, main-d'œuvre et total sont calculés sur place, devant le client.",
   },
   {
-    name: "Aïcha D.",
-    job: "Menuisière alu, Kara",
-    text: "Les modèles sont vraiment beaux. Mes clients pensent que j'ai une grande entreprise !",
+    icon: "📲",
+    title: "Envoyé sur WhatsApp en 1 clic",
+    text: "Le client reçoit un lien : il consulte le devis et l'accepte en ligne, sans compte. Vous êtes prévenu et le devis est tamponné « accepté ».",
   },
   {
-    name: "Mensah K.",
-    job: "Entrepreneur BTP, Lomé",
-    text: "Plus d'erreurs de calcul. Le total est toujours juste et je partage le PDF direct sur WhatsApp.",
+    icon: "🔔",
+    title: "Plus aucun devis oublié",
+    text: "Le tableau de bord vous montre les devis sans réponse et les paiements en attente — relancez en un clic, encaissez plus vite.",
   },
 ];
 
@@ -295,26 +296,18 @@ export default async function Landing() {
         </div>
       </section>
 
-      {/* TÉMOIGNAGES */}
+      {/* CAS D'USAGE */}
       <section className="bg-slate-50 py-16">
         <div className="mx-auto max-w-5xl px-5">
           <h2 className="text-3xl font-bold text-center">
-            Ils ont gagné du temps
+            Au quotidien, ça change quoi ?
           </h2>
           <div className="mt-10 grid sm:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="card p-6">
-                <div className="text-amber-400 text-lg">★★★★★</div>
-                <p className="mt-3 text-slate-600 text-sm">« {t.text} »</p>
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold">
-                    {t.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">{t.name}</div>
-                    <div className="text-xs text-slate-500">{t.job}</div>
-                  </div>
-                </div>
+            {USE_CASES.map((t) => (
+              <div key={t.title} className="card p-6">
+                <div className="text-3xl">{t.icon}</div>
+                <div className="mt-3 font-semibold">{t.title}</div>
+                <p className="mt-2 text-slate-600 text-sm">{t.text}</p>
               </div>
             ))}
           </div>

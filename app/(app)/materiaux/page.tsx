@@ -13,6 +13,7 @@ type Material = {
   tradeId: string | null;
   tradeName?: string;
   custom: boolean;
+  ownedOnly: boolean;
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -27,9 +28,19 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [aiAvailable, setAiAvailable] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    unit: "pièce",
+    kind: "MATERIAL",
+    unitPrice: 0,
+  });
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState("");
 
   async function load() {
     const r = await fetch("/api/materials");
@@ -53,20 +64,27 @@ export default function MaterialsPage() {
     return Array.from(map.entries());
   }, [materials]);
 
-  const shown = materials.filter(
-    (m) => filter === "all" || m.tradeId === filter
-  );
+  const hasCustom = materials.some((m) => m.ownedOnly);
+
+  const shown = materials.filter((m) => {
+    if (filter === "mine" && !m.ownedOnly) return false;
+    if (filter !== "all" && filter !== "mine" && m.tradeId !== filter)
+      return false;
+    if (search && !m.name.toLowerCase().includes(search.toLowerCase()))
+      return false;
+    return true;
+  });
 
   function edit(key: string, field: "unitPrice" | "margin", value: number) {
     setMaterials((ms) =>
-      ms.map((m) => (m.key === key ? { ...m, [field]: value, custom: true } : m))
+      ms.map((m) => (m.key === key ? { ...m, [field]: value } : m))
     );
   }
 
   async function estimateWithAI() {
     setAiBusy(true);
     setAiMsg("");
-    const target = shown.filter((m) => m.kind !== "LABOR");
+    const target = shown.filter((m) => m.kind !== "LABOR").slice(0, 40);
     const res = await fetch("/api/ai/estimate-prices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,7 +104,7 @@ export default function MaterialsPage() {
       ms.map((m) => {
         if (prices[m.key]) {
           n++;
-          return { ...m, unitPrice: prices[m.key], custom: true };
+          return { ...m, unitPrice: prices[m.key] };
         }
         return m;
       })
@@ -110,16 +128,120 @@ export default function MaterialsPage() {
       }),
     });
     setSavingKey(null);
+    setMaterials((ms) =>
+      ms.map((x) => (x.key === m.key ? { ...x, custom: true } : x))
+    );
+  }
+
+  async function resetOrDelete(m: Material) {
+    const msg = m.ownedOnly
+      ? "Supprimer ce matériau personnalisé ?"
+      : "Revenir au prix du catalogue pour ce matériau ?";
+    if (!confirm(msg)) return;
+    setSavingKey(m.key);
+    await fetch(`/api/materials?key=${encodeURIComponent(m.key)}`, {
+      method: "DELETE",
+    });
+    setSavingKey(null);
+    load();
+  }
+
+  async function addMaterial(e: React.FormEvent) {
+    e.preventDefault();
+    setAddBusy(true);
+    setAddError("");
+    const res = await fetch("/api/materials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(addForm),
+    });
+    setAddBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setAddError(d.error || "Création impossible.");
+      return;
+    }
+    setAddForm({ name: "", unit: "pièce", kind: "MATERIAL", unitPrice: 0 });
+    setShowAdd(false);
+    load();
   }
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Matériaux & prix</h1>
-        <p className="text-slate-500 text-sm">
-          Ajustez vos prix locaux. Ils sont utilisés dans tous vos devis.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Matériaux & prix</h1>
+          <p className="text-slate-500 text-sm">
+            Ajustez vos prix locaux. Ils sont utilisés dans tous vos devis.
+          </p>
+        </div>
+        <button onClick={() => setShowAdd((s) => !s)} className="btn-accent">
+          {showAdd ? "Fermer" : "+ Matériau"}
+        </button>
       </div>
+
+      {showAdd && (
+        <form onSubmit={addMaterial} className="card p-5 space-y-3">
+          <h2 className="font-semibold">Nouveau matériau personnalisé</h2>
+          {addError && (
+            <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-2">
+              {addError}
+            </div>
+          )}
+          <div>
+            <label className="label">Nom *</label>
+            <input
+              className="input"
+              value={addForm.name}
+              onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+              placeholder="Ex : Pavé autobloquant 6 cm"
+              required
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="label">Unité</label>
+              <input
+                className="input"
+                value={addForm.unit}
+                onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Type</label>
+              <select
+                className="input"
+                value={addForm.kind}
+                onChange={(e) => setAddForm({ ...addForm, kind: e.target.value })}
+              >
+                {Object.entries(KIND_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Prix (FCFA)</label>
+              <input
+                type="number"
+                min={0}
+                className="input"
+                value={addForm.unitPrice}
+                onChange={(e) =>
+                  setAddForm({
+                    ...addForm,
+                    unitPrice: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <button className="btn-primary w-full" disabled={addBusy}>
+            {addBusy ? "Création…" : "Créer le matériau"}
+          </button>
+        </form>
+      )}
 
       {aiAvailable && (
         <div className="card p-4 space-y-2">
@@ -134,10 +256,22 @@ export default function MaterialsPage() {
         </div>
       )}
 
+      <input
+        className="input"
+        placeholder="Rechercher un matériau…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Chip active={filter === "all"} onClick={() => setFilter("all")}>
           Tous
         </Chip>
+        {hasCustom && (
+          <Chip active={filter === "mine"} onClick={() => setFilter("mine")}>
+            Mes matériaux
+          </Chip>
+        )}
         {trades.map(([id, name]) => (
           <Chip key={id} active={filter === id} onClick={() => setFilter(id)}>
             {name}
@@ -147,6 +281,10 @@ export default function MaterialsPage() {
 
       {loading ? (
         <div className="p-8 text-center text-slate-500">Chargement…</div>
+      ) : shown.length === 0 ? (
+        <div className="card p-10 text-center text-slate-500">
+          Aucun matériau trouvé.
+        </div>
       ) : (
         <div className="card divide-y divide-slate-100">
           {shown.map((m) => (
@@ -156,11 +294,26 @@ export default function MaterialsPage() {
                   <div className="font-medium text-sm truncate">{m.name}</div>
                   <div className="text-[11px] text-slate-400">
                     {KIND_LABEL[m.kind]} · /{m.unit}
-                    {m.custom && (
+                    {m.ownedOnly ? (
+                      <span className="ml-2 text-accent-600">· personnalisé</span>
+                    ) : m.custom ? (
                       <span className="ml-2 text-brand-600">· prix perso</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
+                {(m.custom || m.ownedOnly) && (
+                  <button
+                    onClick={() => resetOrDelete(m)}
+                    className="text-slate-400 hover:text-red-500 text-sm shrink-0"
+                    title={
+                      m.ownedOnly
+                        ? "Supprimer ce matériau"
+                        : "Revenir au prix catalogue"
+                    }
+                  >
+                    {m.ownedOnly ? "🗑️" : "↺"}
+                  </button>
+                )}
               </div>
               <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                 <div>
@@ -169,6 +322,7 @@ export default function MaterialsPage() {
                   </label>
                   <input
                     type="number"
+                    min={0}
                     className="input !py-2 !px-3 text-sm"
                     value={m.unitPrice}
                     onChange={(e) =>
@@ -180,6 +334,7 @@ export default function MaterialsPage() {
                   <label className="text-[11px] text-slate-400">Marge %</label>
                   <input
                     type="number"
+                    min={0}
                     className="input !py-2 !px-3 text-sm"
                     value={m.margin}
                     onChange={(e) =>
