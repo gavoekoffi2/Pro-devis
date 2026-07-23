@@ -23,31 +23,55 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # La base est configurée dans Netlify. On récupère sa valeur sans
+      # l'afficher afin d'utiliser exactement la même base pour le build,
+      # le contrôle de migration et le runtime de production.
+      - name: Resolve production database
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          DATABASE_URL="$(npx netlify-cli@latest env:get DATABASE_URL \
+            --context production \
+            --site "$NETLIFY_SITE_ID" \
+            --auth "$NETLIFY_AUTH_TOKEN")"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is missing in Netlify production."
+            exit 1
+          fi
+          echo "::add-mask::$DATABASE_URL"
+          echo "DATABASE_URL=$DATABASE_URL" >> "$GITHUB_ENV"
+
       - name: Generate Prisma client
         run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Build
         run: npm run build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
           OPENROUTER_SEARCH_MODEL: ${{ vars.OPENROUTER_SEARCH_MODEL }}
 
       # Synchronise le schéma et le catalogue métiers (seed idempotent).
+      # Le contrôle explicite arrête le déploiement avant toute modification
+      # si des numéros de devis sont déjà en double.
       - name: Sync database schema & catalog
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "DATABASE_URL missing, skipping database sync."
-            exit 0
-          fi
+          node <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient();
+          (async () => {
+            const duplicates = await prisma.$queryRawUnsafe(
+              'SELECT "companyId", "number", COUNT(*)::int AS count FROM "Quote" GROUP BY "companyId", "number" HAVING COUNT(*) > 1 LIMIT 1'
+            );
+            if (duplicates.length) {
+              throw new Error('Duplicate quote numbers detected; database migration aborted.');
+            }
+          })().finally(() => prisma.$disconnect());
+          NODE
           npx prisma db push
           npx tsx prisma/seed.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Deploy to Netlify
         run: |
