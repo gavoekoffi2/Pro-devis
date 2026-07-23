@@ -1,0 +1,34 @@
+name: Verify Pro Devis
+
+on:
+  push:
+    branches:
+      - main
+      - claude/pro-devis-quote-app-hzos25
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://prodevis:ci-only@127.0.0.1:5432/prodevis
+          AUTH_SECRET: ci-only-secret-not-used-at-runtime
