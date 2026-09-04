@@ -21,11 +21,42 @@ génère un devis professionnel imprimable / partageable sur WhatsApp.
   mesures → devis calculé et éditable.
 - **Moteur de calcul** data-driven (recettes par type de travail, surface,
   volume, périmètre, pertes, main-d'œuvre, transport).
+- **8 modèles de devis premium** (Simple, Moderne, BTP, Architecte, Artisan,
+  Luxe, Économique, Identité forte) en **A4 ou A5**, avec aperçu en direct.
+- **Logo & en-tête générés automatiquement** (monogramme SVG) à partir du nom,
+  du métier et de la couleur de marque — ou import d'un logo / en-tête existant.
+- **Page d'aperçu éditable** : changer le modèle, le format, corriger les
+  textes, prix et lignes, ajouter des **instructions spéciales**, vérifier le
+  total — puis valider avant impression.
 - **Devis PDF** professionnel (logo, tableau détaillé, totaux, conditions,
-  « Bon pour accord »), imprimable et partageable sur WhatsApp.
+  instructions spéciales, « Bon pour accord »), imprimable et partageable WhatsApp.
+- **Page d'accueil marketing** complète (hero, problème/solution, étapes,
+  métiers, modèles, témoignages, tarifs, CTA).
+- **Devis multi-postes** : plusieurs types de travaux + lignes libres dans un
+  même devis, regroupés par poste (sections) dans le PDF.
+- **Assistant IA** (optionnel) : décrivez le chantier en langage naturel →
+  l'IA propose postes, quantités et prix ; **estimation des prix du marché**
+  par recherche web. Branché sur OpenRouter (voir `.env.example`).
+- **Facture & paiement** : conversion devis → facture, acompte, solde,
+  statut payé/partiel/impayé.
+- **Acceptation en ligne** : lien client public (`/d/...`) pour consulter et
+  accepter/refuser le devis sans compte ; tampon « Devis accepté » sur le PDF.
+- **Mode légal optionnel** : NIF/RCCM **désactivés par défaut** (la plupart des
+  artisans ne sont pas formalisés) ; montant en toutes lettres automatique.
+- **PWA** : application installable sur téléphone, tolérante au hors-ligne.
+- **Recherche & filtres** sur les devis et les clients.
 - **Historique** des devis : liste, détail, statut, duplication, suppression.
-- **Mini-CRM clients**.
-- **Tableau de bord** : nombre de devis, montant total, acceptés, en attente.
+- **Mini-CRM clients** avec historique (nombre de devis, montant cumulé) et
+  création de devis pré-rempli en un clic.
+- **Tableau de bord orienté action** : montant accepté, encaissé, taux
+  d'acceptation, devis **à relancer** (sans réponse depuis 3 jours) et
+  paiements **à encaisser** — relance WhatsApp en 1 clic.
+- **Reçu de paiement WhatsApp** : après un acompte ou un solde, envoyez la
+  preuve de paiement au client en un clic.
+- **Devis expirés** détectés automatiquement (badge + alerte, suggestion de
+  duplication).
+- **Matériaux personnalisés** : ajoutez vos propres articles au catalogue,
+  en plus de la surcharge des prix locaux.
 - **Plans SaaS** : gratuit (3 devis/mois), Pro (illimité), Entreprise.
 
 ---
@@ -116,11 +147,22 @@ prisma/
 
 ---
 
+## 🔒 Notes de production
+
+- `AUTH_SECRET` est **obligatoire** en production (min. 16 caractères) ;
+  l'application refuse de signer des sessions avec le secret par défaut.
+- Les numéros de devis sont uniques par entreprise (contrainte en base) et
+  ne sont jamais réutilisés après suppression du dernier devis seulement.
+- Les endpoints d'authentification et le lien public sont protégés par un
+  limiteur de débit en mémoire (prévoir Redis pour du multi-instance).
+- Le déploiement GitHub Actions synchronise le schéma (`prisma db push`)
+  et le catalogue métiers (seed idempotent) avant chaque mise en production.
+
 ## 🔜 Évolutions prévues
 
 - Paiement Mobile Money / Flooz / TMoney pour les abonnements.
+- Réinitialisation de mot de passe (nécessite un service d'email/SMS).
 - Recherche automatique des prix fournisseurs.
 - Upload de logo (stockage objet) au lieu d'une URL.
 - Espace admin (métiers, formules, abonnements, statistiques).
-- Conversion devis → facture.
 - Application mobile native (Expo).

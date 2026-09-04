@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hors ligne — Pro Devis</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #f4f6fb;
+        color: #0f172a;
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        text-align: center;
+        padding: 24px;
+      }
+      .box { max-width: 360px; }
+      .logo { font-size: 28px; font-weight: 800; color: #1c6df5; }
+      .accent { color: #16a34a; }
+      p { color: #64748b; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div class="logo">Pro<span class="accent">Devis</span></div>
+      <h1>Vous êtes hors ligne</h1>
+      <p>
+        Vérifiez votre connexion internet puis réessayez. Vos devis déjà ouverts
+        restent disponibles.
+      </p>
+      <button onclick="location.reload()"
+        style="background:#1c6df5;color:#fff;border:0;border-radius:12px;padding:12px 20px;font-weight:600;">
+        Réessayer
+      </button>
+    </div>
+  </body>
+</html>

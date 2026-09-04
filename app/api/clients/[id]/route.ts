@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let user;
   try {
@@ -12,13 +12,14 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const existing = await prisma.client.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const existing = await prisma.client.findUnique({ where: { id } });
   if (!existing || existing.companyId !== user.companyId) {
     return NextResponse.json({ error: "Introuvable" }, { status: 404 });
   }
   const body = await req.json().catch(() => ({}));
   const client = await prisma.client.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       name: body.name ?? existing.name,
       phone: body.phone ?? existing.phone,
@@ -32,7 +33,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let user;
   try {
@@ -40,10 +41,11 @@ export async function DELETE(
   } catch {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const existing = await prisma.client.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const existing = await prisma.client.findUnique({ where: { id } });
   if (!existing || existing.companyId !== user.companyId) {
     return NextResponse.json({ error: "Introuvable" }, { status: 404 });
   }
-  await prisma.client.delete({ where: { id: params.id } });
+  await prisma.client.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

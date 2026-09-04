@@ -1,0 +1,14 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN apk add --no-cache openssl libc6-compat
+ENV NODE_ENV=production
+COPY package*.json ./
+COPY prisma ./prisma
+# Prisma CLI est une dépendance de développement : on génère d'abord le
+# client avec la version verrouillée, puis on retire les dépendances dev.
+RUN npm ci --include=dev && npx prisma generate && npm prune --omit=dev
+COPY .next ./.next
+COPY public ./public
+COPY next.config.mjs ./next.config.mjs
+EXPOSE 3012
+CMD ["sh", "-c", "npm start -- -p 3012"]

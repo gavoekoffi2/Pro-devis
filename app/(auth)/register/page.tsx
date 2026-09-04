@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Monogram } from "@/components/Monogram";
+import { BRAND_COLORS } from "@/lib/brand";
 
 const TRADES = [
   { key: "maconnerie", name: "Maçonnerie", icon: "🧱" },
@@ -23,6 +25,10 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     trade: "maconnerie",
+    activity: "",
+    slogan: "",
+    city: "Lomé",
+    brandColor: "#1c6df5",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,6 +71,32 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {/* Aperçu en direct du logo / en-tête généré */}
+          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+            <Monogram
+              name={form.companyName || "Pro Devis"}
+              color={form.brandColor}
+              style="modern"
+              size={56}
+            />
+            <div className="min-w-0">
+              <div className="font-bold truncate">
+                {form.companyName || "Votre entreprise"}
+              </div>
+              <div className="text-xs text-slate-500 truncate">
+                {form.activity || "Votre activité"}
+              </div>
+              {form.slogan && (
+                <div className="text-xs italic text-brand-600 truncate">
+                  « {form.slogan} »
+                </div>
+              )}
+            </div>
+            <span className="ml-auto text-[10px] text-slate-400 text-right leading-tight">
+              Logo généré<br />automatiquement
+            </span>
+          </div>
+
           <div>
             <label className="label">Nom de l'entreprise / artisan</label>
             <input
@@ -93,6 +125,56 @@ export default function RegisterPage() {
                   <div className="text-xl">{t.icon}</div>
                   {t.name}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Description courte de l'activité</label>
+            <input
+              className="input"
+              value={form.activity}
+              onChange={(e) => set("activity", e.target.value)}
+              placeholder="Construction, rénovation, dallage…"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Slogan (optionnel)</label>
+              <input
+                className="input"
+                value={form.slogan}
+                onChange={(e) => set("slogan", e.target.value)}
+                placeholder="Le bâti de confiance"
+              />
+            </div>
+            <div>
+              <label className="label">Ville</label>
+              <input
+                className="input"
+                value={form.city}
+                onChange={(e) => set("city", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Couleur de marque</label>
+            <div className="flex flex-wrap gap-2">
+              {BRAND_COLORS.map((c) => (
+                <button
+                  type="button"
+                  key={c.value}
+                  onClick={() => set("brandColor", c.value)}
+                  aria-label={c.name}
+                  className={`h-8 w-8 rounded-full border-2 transition ${
+                    form.brandColor === c.value
+                      ? "border-slate-800 scale-110"
+                      : "border-white shadow"
+                  }`}
+                  style={{ background: c.value }}
+                />
               ))}
             </div>
           </div>

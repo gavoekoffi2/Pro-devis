@@ -77,9 +77,13 @@ export function QuoteActions({
         </div>
       </div>
 
+      <a href={`/devis/${id}/apercu`} className="btn-primary w-full">
+        🎨 Choisir un modèle & Imprimer
+      </a>
+
       <div className="card p-4 grid grid-cols-2 gap-2">
-        <a href={`/devis/${id}/imprimer`} target="_blank" className="btn-primary">
-          🖨️ PDF / Imprimer
+        <a href={`/devis/${id}/imprimer`} target="_blank" className="btn-ghost">
+          🖨️ Impression rapide
         </a>
         <a
           href={waLink}

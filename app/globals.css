@@ -47,17 +47,77 @@ body {
 }
 
 /* Impression devis */
+@page {
+  margin: 10mm;
+}
 @media print {
   .no-print {
     display: none !important;
   }
+  html,
   body {
-    background: white;
+    background: white !important;
+  }
+  /* Imprime les fonds colorés des en-têtes de modèles */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .print-page {
     box-shadow: none !important;
     border: none !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
     max-width: none !important;
   }
+}
+
+/* Animations légères (motion design) */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.6s ease both;
+}
+.animate-fade-in {
+  animation: fade-in 0.8s ease both;
+}
+.animate-float {
+  animation: float-slow 4s ease-in-out infinite;
+}
+.delay-100 {
+  animation-delay: 0.1s;
+}
+.delay-200 {
+  animation-delay: 0.2s;
+}
+.delay-300 {
+  animation-delay: 0.3s;
+}
+.delay-500 {
+  animation-delay: 0.5s;
 }

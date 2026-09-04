@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { nextQuoteNumber } from "@/lib/materials";
+import { createQuoteWithNumber, checkPlanLimit } from "@/lib/quotes";
 import { computeTotals, type ComputedLine } from "@/lib/calc";
 
 export async function GET() {
@@ -25,27 +26,19 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
-  const company = user.company!;
+  const company = user.company;
+  if (!company) {
+    return NextResponse.json({ error: "Aucune entreprise" }, { status: 400 });
+  }
   const companyId = company.id;
 
   // Limite plan gratuit : 3 devis / mois civil
-  if (user.plan === "FREE") {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const used = await prisma.quote.count({
-      where: { companyId, createdAt: { gte: startOfMonth } },
-    });
-    if (used >= 3) {
-      return NextResponse.json(
-        {
-          error:
-            "Limite du plan gratuit atteinte (3 devis/mois). Passez au plan Pro pour des devis illimités.",
-          code: "PLAN_LIMIT",
-        },
-        { status: 402 }
-      );
-    }
+  const limitError = await checkPlanLimit(user.plan, companyId);
+  if (limitError) {
+    return NextResponse.json(
+      { error: limitError, code: "PLAN_LIMIT" },
+      { status: 402 }
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -58,6 +51,7 @@ export async function POST(req: Request) {
     clientPhone,
     clientAddress,
     saveClient,
+    clientId: providedClientId,
     projectDescription,
     siteAddress,
     tradeKey,
@@ -69,35 +63,52 @@ export async function POST(req: Request) {
     paymentTerms,
     validityDays,
     notes,
+    specialInstructions,
   } = body;
 
-  const cleanLines: ComputedLine[] = (lines as any[])
+  const cleanLines = (Array.isArray(lines) ? (lines as any[]) : [])
     .map((l, i) => ({
       designation: String(l.designation ?? "").slice(0, 200),
-      unit: String(l.unit ?? "pièce"),
-      quantity: Number(l.quantity) || 0,
-      unitPrice: Number(l.unitPrice) || 0,
-      total: Math.round((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)),
+      unit: String(l.unit ?? "pièce").slice(0, 30),
+      quantity: Math.max(0, Number(l.quantity) || 0),
+      unitPrice: Math.max(0, Number(l.unitPrice) || 0),
+      total: Math.round(
+        Math.max(0, Number(l.quantity) || 0) * Math.max(0, Number(l.unitPrice) || 0)
+      ),
       kind: (["MATERIAL", "LABOR", "TRANSPORT", "OTHER"].includes(l.kind)
         ? l.kind
         : "MATERIAL") as ComputedLine["kind"],
+      section: l.section ? String(l.section).slice(0, 120) : null,
       order: i,
     }))
     .filter((l) => l.designation && l.quantity > 0);
 
-  const effectiveTax = taxRate != null ? Number(taxRate) : company.taxRate;
+  if (cleanLines.length === 0) {
+    return NextResponse.json(
+      { error: "Le devis doit contenir au moins une ligne." },
+      { status: 400 }
+    );
+  }
+
+  const effectiveTax = taxRate != null ? Number(taxRate) || 0 : company.taxRate;
   const totals = computeTotals(cleanLines, {
     discount: Number(discount) || 0,
     taxRate: effectiveTax,
   });
 
-  // Lier / créer le client si demandé
+  // Lier un client existant, ou créer une fiche si demandé.
   let clientId: string | null = null;
-  if (saveClient && clientName) {
+  if (providedClientId) {
+    const existing = await prisma.client.findUnique({
+      where: { id: String(providedClientId) },
+    });
+    if (existing && existing.companyId === companyId) clientId = existing.id;
+  }
+  if (!clientId && saveClient && clientName) {
     const client = await prisma.client.create({
       data: {
         companyId,
-        name: clientName,
+        name: String(clientName).slice(0, 120),
         phone: clientPhone || null,
         whatsapp: clientPhone || null,
         address: clientAddress || null,
@@ -106,40 +117,43 @@ export async function POST(req: Request) {
     clientId = client.id;
   }
 
-  const number = await nextQuoteNumber(companyId);
-
-  const quote = await prisma.quote.create({
-    data: {
-      number,
-      companyId,
-      clientId,
-      clientName: clientName || null,
-      clientPhone: clientPhone || null,
-      clientAddress: clientAddress || null,
-      projectDescription: projectDescription || null,
-      siteAddress: siteAddress || null,
-      tradeKey: tradeKey || null,
-      workLabel: workLabel || null,
-      workTypeId: workTypeId || null,
-      status: "SENT",
-      currency: company.currency,
-      paymentTerms: paymentTerms ?? company.paymentTerms,
-      validityDays: validityDays ?? company.validityDays,
-      notes: notes || null,
-      ...totals,
-      items: {
-        create: cleanLines.map((l) => ({
-          designation: l.designation,
-          unit: l.unit,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          total: l.total,
-          kind: l.kind,
-          order: (l as any).order ?? 0,
-        })),
+  const quote = await createQuoteWithNumber(companyId, (number) =>
+    prisma.quote.create({
+      data: {
+        number,
+        companyId,
+        clientId,
+        clientName: clientName || null,
+        clientPhone: clientPhone || null,
+        clientAddress: clientAddress || null,
+        projectDescription: projectDescription || null,
+        siteAddress: siteAddress || null,
+        tradeKey: tradeKey || null,
+        workLabel: workLabel || null,
+        workTypeId: workTypeId || null,
+        status: "SENT",
+        currency: company.currency,
+        paymentTerms: paymentTerms ?? company.paymentTerms,
+        validityDays: Math.max(1, Number(validityDays) || company.validityDays),
+        notes: notes || null,
+        specialInstructions: specialInstructions || null,
+        publicId: randomUUID(),
+        ...totals,
+        items: {
+          create: cleanLines.map((l) => ({
+            designation: l.designation,
+            unit: l.unit,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            total: l.total,
+            kind: l.kind,
+            section: l.section,
+            order: l.order,
+          })),
+        },
       },
-    },
-  });
+    })
+  );
 
   return NextResponse.json({ id: quote.id, number: quote.number });
 }

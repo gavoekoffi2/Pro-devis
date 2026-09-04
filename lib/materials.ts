@@ -31,11 +31,3 @@ export async function resolveMaterials(
   }
   return index;
 }
-
-/** Génère le prochain numéro de devis : DEV-AAAA-NNNN. */
-export async function nextQuoteNumber(companyId: string) {
-  const year = new Date().getFullYear();
-  const count = await prisma.quote.count({ where: { companyId } });
-  const seq = String(count + 1).padStart(4, "0");
-  return `DEV-${year}-${seq}`;
-}

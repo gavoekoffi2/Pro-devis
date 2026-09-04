@@ -41,12 +41,24 @@ model Company {
   id           String   @id @default(cuid())
   name         String
   logoUrl      String?
+  headerImageUrl String? // en-tête déjà prêt importé par l'utilisateur
   phone        String?
   whatsapp     String?
   email        String?
   address      String?
   city         String?  @default("Lomé")
   primaryTrade String?  // clé du métier principal
+  activity     String?  // description courte de l'activité
+  slogan       String?  // slogan de l'entreprise
+  brandColor   String   @default("#1c6df5") // couleur de marque (logo/en-tête auto)
+  headerStyle  String   @default("modern")  // style d'en-tête généré
+  // Mode "entreprise formalisée" — DÉSACTIVÉ par défaut.
+  // La plupart des artisans ne sont pas formalisés : on ne leur demande RIEN.
+  isRegistered Boolean  @default(false)
+  nif          String?  // numéro d'identification fiscale (si formalisé)
+  rccm         String?  // registre du commerce (si formalisé)
+  bankInfo     String?  // coordonnées de paiement (Mobile Money / banque)
+  signatureUrl String?  // image de signature / cachet
   // Réglages devis par défaut
   paymentTerms String?  @default("50% à la commande, 50% à la livraison")
   validityDays Int      @default(30)
@@ -164,6 +176,12 @@ enum QuoteStatus {
   REFUSED   // refusé
 }
 
+enum PaymentStatus {
+  UNPAID  // impayé
+  PARTIAL // partiellement payé (acompte)
+  PAID    // payé
+}
+
 model Quote {
   id     String      @id @default(cuid())
   number String // ex: "DEV-2026-0001"
@@ -201,13 +219,29 @@ model Quote {
   paymentTerms String?
   validityDays Int     @default(30)
   notes        String?
+  specialInstructions String? // instructions spéciales du devis (délais, garantie…)
+
+  // Présentation / modèle PDF
+  templateId String @default("simple") // modèle de devis choisi
+  paperSize  String @default("A4")     // A4 ou A5
 
   isInvoice Boolean  @default(false)
+
+  // Suivi de paiement (surtout pour les factures)
+  amountPaid    Float         @default(0)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  // Partage public & acceptation en ligne
+  publicId   String?   @unique
+  acceptedAt DateTime?
+  signerName String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   items QuoteItem[]
 
+  @@unique([companyId, number])
   @@index([companyId])
   @@index([clientId])
 }
@@ -220,6 +254,7 @@ model QuoteItem {
   unitPrice   Float        @default(0)
   total       Float        @default(0)
   kind        MaterialKind @default(MATERIAL)
+  section     String?      // regroupement par poste (ex: "Mur en parpaings")
   order       Int          @default(0)
 
   quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
