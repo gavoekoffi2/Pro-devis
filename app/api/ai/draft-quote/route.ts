@@ -1,44 +1,59 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { z } from "zod";
 import { aiEnabled, aiDraftQuote } from "@/lib/ai";
+import { getCompanyUser, guard, jsonError, readJson } from "@/lib/api";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
+
+const schema = z.object({
+  description: z
+    .string()
+    .trim()
+    .min(5, "Décrivez le chantier (quelques mots minimum).")
+    .max(4000, "Description trop longue (max. 4000 caractères)."),
+});
 
 export async function POST(req: Request) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
-  if (!aiEnabled()) {
-    return NextResponse.json({ error: "IA non configurée" }, { status: 503 });
-  }
+  return guard(async () => {
+    const { user, error } = await getCompanyUser();
+    if (error) return error;
+    if (!aiEnabled()) return jsonError("IA non configurée", 503);
 
-  const body = await req.json().catch(() => ({}));
-  const description = String(body.description ?? "").trim();
-  if (description.length < 5) {
-    return NextResponse.json(
-      { error: "Décrivez le chantier (quelques mots minimum)." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const lines = await aiDraftQuote(description, {
-      trade: user.company?.primaryTrade || undefined,
-      city: user.company?.city || undefined,
-      currency: user.company?.currency || "FCFA",
+    // Chaque appel coûte des jetons chez le fournisseur : sans limite, un
+    // compte compromis suffit à faire exploser la facture.
+    const limited = rateLimit(`ai:draft:${user.id}:${clientIp(req)}`, {
+      max: 20,
+      windowMs: 10 * 60 * 1000,
     });
-    if (!lines.length) {
+    if (!limited.ok) {
       return NextResponse.json(
-        { error: "L'IA n'a pas pu proposer de lignes. Reformulez la description." },
-        { status: 422 }
+        { error: "Trop de générations. Réessayez dans quelques minutes." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSec) } }
       );
     }
-    return NextResponse.json({ lines });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "Service IA indisponible pour le moment.", detail: String(e?.message || e).slice(0, 120) },
-      { status: 502 }
-    );
-  }
+
+    const parsed = schema.safeParse(await readJson(req));
+    if (!parsed.success) {
+      return jsonError(parsed.error.errors[0]?.message ?? "Données invalides", 400);
+    }
+
+    try {
+      const lines = await aiDraftQuote(parsed.data.description, {
+        trade: user.company.primaryTrade || undefined,
+        city: user.company.city || undefined,
+        currency: user.company.currency || "FCFA",
+      });
+      if (!lines.length) {
+        return jsonError(
+          "L'IA n'a pas pu proposer de lignes. Reformulez la description.",
+          422
+        );
+      }
+      return NextResponse.json({ lines });
+    } catch (e) {
+      // La cause exacte (clé, quota, modèle) reste dans les logs serveur :
+      // la renvoyer au client exposerait la configuration du fournisseur.
+      console.error("[ai/draft-quote]", e);
+      return jsonError("Service IA indisponible pour le moment.", 502);
+    }
+  });
 }

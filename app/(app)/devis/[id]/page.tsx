@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requirePageUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
 import { statusMeta, expiryDate, isExpired } from "@/lib/status";
@@ -13,14 +13,16 @@ export default async function QuoteDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getCurrentUser();
-  const quote = await prisma.quote.findUnique({
-    where: { id },
+  const user = await requirePageUser();
+  // Le cloisonnement est dans la requête : un identifiant deviné ne peut pas
+  // ramener le devis d'une autre entreprise.
+  const quote = await prisma.quote.findFirst({
+    where: { id, companyId: user.companyId },
     include: { items: { orderBy: { order: "asc" } } },
   });
-  if (!quote || quote.companyId !== user!.companyId) notFound();
+  if (!quote) notFound();
 
-  const company = user!.company!;
+  const company = user.company;
   const meta = statusMeta(quote);
   const expired = isExpired(quote);
   const validUntil = expiryDate(quote.createdAt, quote.validityDays);

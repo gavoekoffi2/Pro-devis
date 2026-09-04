@@ -38,34 +38,34 @@ model User {
 }
 
 model Company {
-  id           String   @id @default(cuid())
-  name         String
-  logoUrl      String?
+  id             String   @id @default(cuid())
+  name           String
+  logoUrl        String?
   headerImageUrl String? // en-tête déjà prêt importé par l'utilisateur
-  phone        String?
-  whatsapp     String?
-  email        String?
-  address      String?
-  city         String?  @default("Lomé")
-  primaryTrade String?  // clé du métier principal
-  activity     String?  // description courte de l'activité
-  slogan       String?  // slogan de l'entreprise
-  brandColor   String   @default("#1c6df5") // couleur de marque (logo/en-tête auto)
-  headerStyle  String   @default("modern")  // style d'en-tête généré
+  phone          String?
+  whatsapp       String?
+  email          String?
+  address        String?
+  city           String?  @default("Lomé")
+  primaryTrade   String? // clé du métier principal
+  activity       String? // description courte de l'activité
+  slogan         String? // slogan de l'entreprise
+  brandColor     String   @default("#1c6df5") // couleur de marque (logo/en-tête auto)
+  headerStyle    String   @default("modern") // style d'en-tête généré
   // Mode "entreprise formalisée" — DÉSACTIVÉ par défaut.
   // La plupart des artisans ne sont pas formalisés : on ne leur demande RIEN.
-  isRegistered Boolean  @default(false)
-  nif          String?  // numéro d'identification fiscale (si formalisé)
-  rccm         String?  // registre du commerce (si formalisé)
-  bankInfo     String?  // coordonnées de paiement (Mobile Money / banque)
-  signatureUrl String?  // image de signature / cachet
+  isRegistered   Boolean  @default(false)
+  nif            String? // numéro d'identification fiscale (si formalisé)
+  rccm           String? // registre du commerce (si formalisé)
+  bankInfo       String? // coordonnées de paiement (Mobile Money / banque)
+  signatureUrl   String? // image de signature / cachet
   // Réglages devis par défaut
-  paymentTerms String?  @default("50% à la commande, 50% à la livraison")
-  validityDays Int      @default(30)
-  taxRate      Float    @default(0) // TVA en %, 0 si non assujetti
-  currency     String   @default("FCFA")
-  footerNote   String?  @default("Merci de votre confiance.")
-  createdAt    DateTime @default(now())
+  paymentTerms   String?  @default("50% à la commande, 50% à la livraison")
+  validityDays   Int      @default(30)
+  taxRate        Float    @default(0) // TVA en %, 0 si non assujetti
+  currency       String   @default("FCFA")
+  footerNote     String?  @default("Merci de votre confiance.")
+  createdAt      DateTime @default(now())
 
   users     User[]
   clients   Client[]
@@ -115,9 +115,9 @@ model WorkType {
 
 enum MaterialKind {
   MATERIAL // matière première
-  LABOR    // main-d'œuvre
+  LABOR // main-d'œuvre
   TRANSPORT
-  OTHER    // frais divers
+  OTHER // frais divers
 }
 
 model Material {
@@ -140,6 +140,12 @@ model Material {
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId String?
 
+  // Une entreprise ne peut avoir qu'un seul prix par clé de matériau.
+  // Sans cette contrainte, deux requêtes simultanées créaient deux surcharges
+  // pour la même clé et le prix affiché devenait aléatoire.
+  // (Les lignes du catalogue global ont `companyId = null` : PostgreSQL
+  // considère les NULL comme distincts, elles restent donc hors contrainte.)
+  @@unique([companyId, key])
   @@index([companyId])
   @@index([tradeId])
 }
@@ -170,16 +176,16 @@ model Client {
 // ─────────────────────────────────────────────────────────────
 
 enum QuoteStatus {
-  DRAFT     // brouillon
-  SENT      // envoyé / en attente
-  ACCEPTED  // accepté
-  REFUSED   // refusé
+  DRAFT // brouillon
+  SENT // envoyé / en attente
+  ACCEPTED // accepté
+  REFUSED // refusé
 }
 
 enum PaymentStatus {
-  UNPAID  // impayé
+  UNPAID // impayé
   PARTIAL // partiellement payé (acompte)
-  PAID    // payé
+  PAID // payé
 }
 
 model Quote {
@@ -198,7 +204,7 @@ model Quote {
   clientPhone   String?
   clientAddress String?
 
-  trade     WorkType? @relation(fields: [workTypeId], references: [id])
+  trade      WorkType? @relation(fields: [workTypeId], references: [id])
   workTypeId String?
   tradeKey   String? // métier (clé)
   workLabel  String? // libellé du type de travail
@@ -207,25 +213,25 @@ model Quote {
   siteAddress        String?
 
   // Montants (calculés et stockés)
-  subtotal     Float @default(0) // total matières
-  laborTotal   Float @default(0)
-  transport    Float @default(0)
-  discount     Float @default(0) // remise (montant)
-  taxRate      Float @default(0)
-  taxAmount    Float @default(0)
-  total        Float @default(0)
+  subtotal   Float @default(0) // total matières
+  laborTotal Float @default(0)
+  transport  Float @default(0)
+  discount   Float @default(0) // remise (montant)
+  taxRate    Float @default(0)
+  taxAmount  Float @default(0)
+  total      Float @default(0)
 
-  currency     String @default("FCFA")
-  paymentTerms String?
-  validityDays Int     @default(30)
-  notes        String?
+  currency            String  @default("FCFA")
+  paymentTerms        String?
+  validityDays        Int     @default(30)
+  notes               String?
   specialInstructions String? // instructions spéciales du devis (délais, garantie…)
 
   // Présentation / modèle PDF
   templateId String @default("simple") // modèle de devis choisi
-  paperSize  String @default("A4")     // A4 ou A5
+  paperSize  String @default("A4") // A4 ou A5
 
-  isInvoice Boolean  @default(false)
+  isInvoice Boolean @default(false)
 
   // Suivi de paiement (surtout pour les factures)
   amountPaid    Float         @default(0)
@@ -244,6 +250,8 @@ model Quote {
   @@unique([companyId, number])
   @@index([companyId])
   @@index([clientId])
+  // Tableau de bord et listes : tri par date au sein d'une entreprise.
+  @@index([companyId, createdAt])
 }
 
 model QuoteItem {
@@ -254,7 +262,7 @@ model QuoteItem {
   unitPrice   Float        @default(0)
   total       Float        @default(0)
   kind        MaterialKind @default(MATERIAL)
-  section     String?      // regroupement par poste (ex: "Mur en parpaings")
+  section     String? // regroupement par poste (ex: "Mur en parpaings")
   order       Int          @default(0)
 
   quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)

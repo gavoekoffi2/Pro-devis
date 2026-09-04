@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { requirePageUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
 import { statusMeta, expiryDate } from "@/lib/status";
@@ -10,12 +10,16 @@ const DAY = 24 * 60 * 60 * 1000;
 const FOLLOW_UP_AFTER_DAYS = 3;
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
-  const company = user!.company!;
+  const user = await requirePageUser();
+  const company = user.company;
   const companyId = company.id;
   const cur = company.currency;
 
-  const followUpBefore = new Date(Date.now() - FOLLOW_UP_AFTER_DAYS * DAY);
+  // Composant serveur rendu à chaque requête : lire l'heure ici est
+  // volontaire (la règle vise les composants clients, ré-rendus à volonté).
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const followUpBefore = new Date(now - FOLLOW_UP_AFTER_DAYS * DAY);
 
   const [recent, accepted, refusedCount, pendingCount, paidAgg, usedThisMonth, toFollowUp, toCollect] =
     await Promise.all([
@@ -79,7 +83,7 @@ export default async function DashboardPage() {
     { label: "En attente", value: pendingCount, icon: "⏳" },
   ];
 
-  const isFree = user!.plan === "FREE";
+  const isFree = user.plan === "FREE";
 
   return (
     <div className="space-y-6">
@@ -128,9 +132,10 @@ export default async function DashboardPage() {
           <ul className="divide-y divide-slate-100">
             {toFollowUp.map((q) => {
               const days = Math.floor(
-                (Date.now() - new Date(q.createdAt).getTime()) / DAY
+                (now - new Date(q.createdAt).getTime()) / DAY
               );
-              const expired = expiryDate(q.createdAt, q.validityDays) < new Date();
+              const expired =
+                expiryDate(q.createdAt, q.validityDays).getTime() < now;
               const msg = `Bonjour${q.clientName ? ` ${q.clientName}` : ""}, avez-vous pu consulter le devis ${q.number} de ${company.name} d'un montant de ${formatMoney(q.total, q.currency)} ? Vous pouvez le consulter et l'accepter en ligne ici :`;
               return (
                 <li

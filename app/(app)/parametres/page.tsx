@@ -1,16 +1,16 @@
-import { getCurrentUser } from "@/lib/auth";
+import { requirePageUser } from "@/lib/session";
 import { SettingsForm } from "@/components/SettingsForm";
 
 export default async function SettingsPage() {
-  const user = await getCurrentUser();
-  const c = user!.company!;
+  const user = await requirePageUser();
+  const c = user.company;
 
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">Paramètres</h1>
       <SettingsForm
-        email={user!.email}
-        plan={user!.plan}
+        email={user.email}
+        plan={user.plan}
         company={{
           name: c.name,
           phone: c.phone,

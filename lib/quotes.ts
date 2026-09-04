@@ -35,9 +35,9 @@ export async function createQuoteWithNumber<T>(
     const number = await nextQuoteNumber(companyId);
     try {
       return await create(number);
-    } catch (e: any) {
+    } catch (e) {
       // P2002 = violation de contrainte unique → on régénère le numéro.
-      if (e?.code === "P2002") {
+      if ((e as { code?: string })?.code === "P2002") {
         lastError = e;
         continue;
       }

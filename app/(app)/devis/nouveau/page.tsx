@@ -34,6 +34,19 @@ type View =
   | "freeLine"
   | "finalize";
 
+/**
+ * Identifiant local d'un poste.
+ *
+ * `crypto.randomUUID()` n'existe que dans un contexte sécurisé : sur une
+ * page servie en HTTP (test depuis un téléphone sur le réseau local) il vaut
+ * `undefined` et l'ajout d'un poste plantait.
+ */
+function localId(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 type SavedClient = {
   id: string;
   name: string;
@@ -115,7 +128,15 @@ function NewQuoteWizard() {
   useEffect(() => {
     fetch("/api/trades")
       .then((r) => r.json())
-      .then((d) => setTrades(d.trades || []))
+      .then((d) => {
+        if (!Array.isArray(d.trades)) throw new Error("bad payload");
+        setTrades(d.trades);
+      })
+      .catch(() =>
+        setError(
+          "Impossible de charger les métiers. Vérifiez votre connexion puis rechargez la page."
+        )
+      )
       .finally(() => setLoading(false));
     fetch("/api/ai/status")
       .then((r) => r.json())
@@ -138,27 +159,38 @@ function NewQuoteWizard() {
     if (aiText.trim().length < 5) return;
     setAiBusy(true);
     setAiError("");
-    const res = await fetch("/api/ai/draft-quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: aiText }),
-    });
-    setAiBusy(false);
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setAiError(d.error || "Génération impossible.");
+    let d: { lines?: Line[]; error?: string } = {};
+    try {
+      const res = await fetch("/api/ai/draft-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiText }),
+      });
+      d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAiError(d.error || "Génération impossible.");
+        return;
+      }
+    } catch {
+      setAiError("Génération impossible. Vérifiez votre connexion.");
+      return;
+    } finally {
+      setAiBusy(false);
+    }
+    if (!Array.isArray(d.lines) || d.lines.length === 0) {
+      setAiError("L'IA n'a proposé aucune ligne. Reformulez la description.");
       return;
     }
     // Regroupe les lignes IA par poste (section)
     const bySection = new Map<string, Line[]>();
-    for (const l of d.lines as Line[]) {
+    for (const l of d.lines) {
       const sec = l.section || "Devis";
       const line: Line = { ...l, total: Math.round(l.quantity * l.unitPrice), section: sec };
       if (!bySection.has(sec)) bySection.set(sec, []);
       bySection.get(sec)!.push(line);
     }
     const newPostes: Poste[] = Array.from(bySection.entries()).map(([label, lines]) => ({
-      id: crypto.randomUUID(),
+      id: localId(),
       label,
       lines,
     }));
@@ -187,24 +219,35 @@ function NewQuoteWizard() {
     if (!work || !trade) return;
     setComputing(true);
     setError("");
-    const res = await fetch("/api/quotes/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workTypeKey: work.key, values }),
-    });
-    setComputing(false);
-    if (!res.ok) {
-      setError("Calcul impossible.");
+    let d: { lines?: Line[]; error?: string } = {};
+    try {
+      const res = await fetch("/api/quotes/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workTypeKey: work.key, values }),
+      });
+      d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error || "Calcul impossible.");
+        return;
+      }
+    } catch {
+      setError("Calcul impossible. Vérifiez votre connexion.");
+      return;
+    } finally {
+      setComputing(false);
+    }
+    if (!Array.isArray(d.lines) || d.lines.length === 0) {
+      // Recette sans matériau correspondant, ou toutes les dimensions à zéro.
+      setError(
+        "Aucune ligne calculée : vérifiez les dimensions saisies (elles doivent être supérieures à zéro)."
+      );
       return;
     }
-    const d = await res.json();
-    const lines: Line[] = (d.lines as Line[]).map((l) => ({
-      ...l,
-      section: work.name,
-    }));
+    const lines: Line[] = d.lines.map((l) => ({ ...l, section: work.name }));
     setPostes((ps) => [
       ...ps,
-      { id: crypto.randomUUID(), label: work.name, tradeKey: trade.key, workTypeId: work.id, lines },
+      { id: localId(), label: work.name, tradeKey: trade.key, workTypeId: work.id, lines },
     ]);
     setView("postes");
   }
@@ -223,7 +266,7 @@ function NewQuoteWizard() {
           p.id === existing.id ? { ...p, lines: [...p.lines, line] } : p
         );
       }
-      return [...ps, { id: crypto.randomUUID(), label: "Divers", lines: [line] }];
+      return [...ps, { id: localId(), label: "Divers", lines: [line] }];
     });
     setFree({ designation: "", unit: "forfait", quantity: 1, unitPrice: 0, total: 0, kind: "OTHER" });
     setView("postes");
@@ -239,25 +282,33 @@ function NewQuoteWizard() {
     const lines = postes.flatMap((p) =>
       p.lines.map((l) => ({ ...l, section: l.section || p.label }))
     );
-    const res = await fetch("/api/quotes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...client,
-        tradeKey: postes[0]?.tradeKey,
-        workLabel:
-          postes.length === 1 ? postes[0].label : `${postes.length} postes`,
-        workTypeId: postes.find((p) => p.workTypeId)?.workTypeId,
-        lines,
-        discount,
-        taxRate,
-        specialInstructions,
-      }),
-    });
-    setSaving(false);
-    const d = await res.json().catch(() => ({}));
-    if (res.ok) router.push(`/devis/${d.id}/apercu`);
-    else setError(d.error || "Enregistrement impossible.");
+    try {
+      const res = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...client,
+          tradeKey: postes[0]?.tradeKey,
+          workLabel:
+            postes.length === 1 ? postes[0].label : `${postes.length} postes`,
+          workTypeId: postes.find((p) => p.workTypeId)?.workTypeId,
+          lines,
+          discount,
+          taxRate,
+          specialInstructions,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error || "Enregistrement impossible.");
+        return;
+      }
+      router.push(`/devis/${d.id}/apercu`);
+    } catch {
+      setError("Enregistrement impossible. Vérifiez votre connexion.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <div className="p-8 text-center text-slate-500">Chargement…</div>;

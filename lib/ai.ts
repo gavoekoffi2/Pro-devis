@@ -50,8 +50,14 @@ async function getFetch(): Promise<FetchLike> {
     // Runtime import volontaire : évite de forcer le chemin proxy dans le bundle Netlify.
     const undici = (await import("undici")) as typeof import("undici");
     const dispatcher = new undici.ProxyAgent(proxy);
-    return ((input: Parameters<FetchLike>[0], init?: Parameters<FetchLike>[1]) =>
-      undici.fetch(input as any, { ...(init as any), dispatcher }) as any) as FetchLike;
+    // Les signatures de `undici.fetch` et du `fetch` global diffèrent
+    // légèrement ; la conversion est faite une seule fois, ici.
+    const proxied = (input: Parameters<FetchLike>[0], init?: Parameters<FetchLike>[1]) =>
+      undici.fetch(
+        input as unknown as Parameters<typeof undici.fetch>[0],
+        { ...(init as unknown as Parameters<typeof undici.fetch>[1]), dispatcher }
+      );
+    return proxied as unknown as FetchLike;
   })();
 
   return proxiedFetchPromise;

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
+import { requirePageUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calc";
 import { statusMeta } from "@/lib/status";
@@ -10,22 +11,27 @@ const FILTERS = [
   { key: "ACCEPTED", label: "Acceptés" },
   { key: "REFUSED", label: "Refusés" },
   { key: "INVOICE", label: "Factures" },
-];
+] as const;
+
+// Seules ces valeurs atteignent la requête : `?f=nimportequoi` provoquait
+// sinon une erreur d'énumération Prisma, donc une page 500.
+const ALLOWED_FILTERS = new Set(FILTERS.map((f) => f.key));
 
 export default async function QuotesPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; f?: string; client?: string }>;
 }) {
-  const user = await getCurrentUser();
+  const user = await requirePageUser();
   const params = await searchParams;
-  const q = (params.q || "").trim();
-  const f = params.f || "";
-  const clientId = params.client || "";
+  const q = (params.q || "").trim().slice(0, 120);
+  const raw = params.f || "";
+  const f = ALLOWED_FILTERS.has(raw as (typeof FILTERS)[number]["key"]) ? raw : "";
+  const clientId = (params.client || "").slice(0, 60);
 
-  const where: any = { companyId: user!.companyId! };
+  const where: Prisma.QuoteWhereInput = { companyId: user.companyId };
   if (f === "INVOICE") where.isInvoice = true;
-  else if (f) where.status = f;
+  else if (f) where.status = f as Prisma.QuoteWhereInput["status"];
   if (clientId) where.clientId = clientId;
   if (q) {
     where.OR = [
@@ -44,7 +50,7 @@ export default async function QuotesPage({
     }),
     clientId
       ? prisma.client.findFirst({
-          where: { id: clientId, companyId: user!.companyId! },
+          where: { id: clientId, companyId: user.companyId },
         })
       : null,
   ]);

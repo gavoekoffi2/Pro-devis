@@ -14,7 +14,6 @@ export function Logo({
 }) {
   const c = view.company;
   if (c.logoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
         src={c.logoUrl}
@@ -275,7 +274,6 @@ export function Conditions({
               {view.isInvoice ? "Cachet & signature" : "Bon pour accord"}
             </div>
             {view.company.signatureUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={view.company.signatureUrl}
                 alt="signature"
@@ -300,7 +298,6 @@ export function Conditions({
 /** Si l'entreprise a importé un en-tête prêt, on l'utilise tel quel. */
 export function ImportedHeader({ view }: { view: QuoteView }) {
   if (!view.company.headerImageUrl) return null;
-  // eslint-disable-next-line @next/next/no-img-element
   return (
     <img
       src={view.company.headerImageUrl}

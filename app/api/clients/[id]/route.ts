@@ -1,51 +1,58 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { getCompanyUser, guard, jsonError, readJson, zodMessage } from "@/lib/api";
+
+const patchSchema = z.object({
+  name: z.string().trim().min(1, "Nom requis").max(120).optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  whatsapp: z.string().trim().max(40).nullable().optional(),
+  address: z.string().trim().max(300).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
-  const { id } = await params;
-  const existing = await prisma.client.findUnique({ where: { id } });
-  if (!existing || existing.companyId !== user.companyId) {
-    return NextResponse.json({ error: "Introuvable" }, { status: 404 });
-  }
-  const body = await req.json().catch(() => ({}));
-  const client = await prisma.client.update({
-    where: { id },
-    data: {
-      name: body.name ?? existing.name,
-      phone: body.phone ?? existing.phone,
-      whatsapp: body.whatsapp ?? existing.whatsapp,
-      address: body.address ?? existing.address,
-      notes: body.notes ?? existing.notes,
-    },
+  return guard(async () => {
+    const { user, error } = await getCompanyUser();
+    if (error) return error;
+
+    const { id } = await params;
+    // Le filtre par entreprise est dans la requête : impossible de toucher
+    // au client d'une autre entreprise, même en devinant son identifiant.
+    const existing = await prisma.client.findFirst({
+      where: { id, companyId: user.companyId },
+    });
+    if (!existing) return jsonError("Introuvable", 404);
+
+    const parsed = patchSchema.safeParse(await readJson(req));
+    if (!parsed.success) return jsonError(zodMessage(parsed.error), 400);
+
+    const client = await prisma.client.update({
+      where: { id: existing.id },
+      data: parsed.data,
+    });
+    return NextResponse.json({ client });
   });
-  return NextResponse.json({ client });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let user;
-  try {
-    user = await requireUser();
-  } catch {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
-  const { id } = await params;
-  const existing = await prisma.client.findUnique({ where: { id } });
-  if (!existing || existing.companyId !== user.companyId) {
-    return NextResponse.json({ error: "Introuvable" }, { status: 404 });
-  }
-  await prisma.client.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  return guard(async () => {
+    const { user, error } = await getCompanyUser();
+    if (error) return error;
+
+    const { id } = await params;
+    const existing = await prisma.client.findFirst({
+      where: { id, companyId: user.companyId },
+    });
+    if (!existing) return jsonError("Introuvable", 404);
+
+    await prisma.client.delete({ where: { id: existing.id } });
+    return NextResponse.json({ ok: true });
+  });
 }

@@ -4,6 +4,11 @@ const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    // `lib/` contient des classes utilitaires (badges de statut de
+    // `lib/status.ts`). Sans ce chemin, Tailwind les purgeait : les badges
+    // « Accepté » (vert) et « Refusé » / « Impayé » (rouge) s'affichaient sans
+    // aucune couleur en production.
+    "./lib/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {

@@ -39,18 +39,23 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setLoading(false);
-    if (res.ok) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Inscription impossible.");
+    } catch {
+      setError("Inscription impossible. Vérifiez votre connexion internet.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -202,14 +207,15 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="label">Mot de passe</label>
+            <label className="label">Mot de passe (8 caractères minimum)</label>
             <input
               type="password"
               className="input"
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
               required
-              minLength={6}
+              minLength={8}
+              autoComplete="new-password"
             />
           </div>
 

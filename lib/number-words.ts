@@ -40,9 +40,9 @@ function below100(n: number): string {
   const u = n % 10;
   if (t === 7 || t === 9) {
     // soixante-dix … / quatre-vingt-dix …
-    const base = TENS[t];
+    const base = TENS[t]; // "soixante" ou "quatre-vingt"
     const rest = below100(10 + u); // dix..dix-neuf
-    return t === 7 ? joinTen(6 === 6 ? "soixante" : base, rest) : `${base}-${rest}`;
+    return t === 7 ? joinTen(base, rest) : `${base}-${rest}`;
   }
   let word = TENS[t];
   if (u === 0) {
@@ -88,12 +88,17 @@ export function numberToFrenchWords(value: number): string {
     if (n >= scale) {
       const count = Math.floor(n / scale);
       n %= scale;
+      // Au-delà de 999 milliards, le compteur dépasse lui-même 999 : on le
+      // décrit récursivement ("mille milliards") au lieu de produire un
+      // "dix cents milliards" incorrect.
+      const countWords =
+        count < 1000 ? below1000(count) : numberToFrenchWords(count);
       if (scale === 1000) {
         // "mille" invariable, et "mille" sans "un"
-        parts.push(count === 1 ? "mille" : `${below1000(count)} mille`);
+        parts.push(count === 1 ? "mille" : `${countWords} mille`);
       } else {
         const label = count > 1 ? plur : sing;
-        parts.push(`${below1000(count)} ${label}`);
+        parts.push(`${countWords} ${label}`);
       }
     }
   }

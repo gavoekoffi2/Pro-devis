@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { buildQuoteView } from "@/lib/build-view";
@@ -6,6 +7,12 @@ import { PublicQuoteActions } from "@/components/PublicQuoteActions";
 import { PrintButton } from "@/components/PrintButton";
 
 export const dynamic = "force-dynamic";
+
+// Un lien de devis partagé expose le nom, le téléphone et l'adresse du client :
+// il ne doit jamais se retrouver dans un moteur de recherche.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 export default async function PublicQuote({
   params,

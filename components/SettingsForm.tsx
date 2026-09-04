@@ -51,22 +51,36 @@ export function SettingsForm({
   const [form, setForm] = useState(company);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
-  const set = (k: keyof Company, v: string | number) =>
+  const set = (k: keyof Company, v: string | number | boolean) =>
     setForm((f) => ({ ...f, [k]: v }));
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    await fetch("/api/company", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setSaving(false);
-    setSaved(true);
-    router.refresh();
+    setError("");
+    try {
+      const res = await fetch("/api/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        // La réponse d'erreur était ignorée : une saisie refusée (couleur,
+        // URL de logo, TVA hors bornes) passait pour un enregistrement réussi.
+        const d = await res.json().catch(() => ({}));
+        setError(d.error || "Enregistrement impossible.");
+        return;
+      }
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError("Enregistrement impossible. Vérifiez votre connexion.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -104,7 +118,6 @@ export function SettingsForm({
         <div className="rounded-2xl bg-slate-50 p-4 space-y-3">
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={form.logoUrl}
                 alt="logo"
@@ -236,7 +249,7 @@ export function SettingsForm({
             type="checkbox"
             className="mt-1"
             checked={form.isRegistered}
-            onChange={(e) => set("isRegistered" as keyof Company, e.target.checked as any)}
+            onChange={(e) => set("isRegistered", e.target.checked)}
           />
           <span>
             <span className="font-bold">J'ai une entreprise formalisée</span>
@@ -350,6 +363,12 @@ export function SettingsForm({
           illimités (paiement Mobile Money / Flooz / TMoney bientôt disponible).
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
 
       <div className="sticky bottom-20 sm:bottom-4 flex justify-end gap-3">
         {saved && (

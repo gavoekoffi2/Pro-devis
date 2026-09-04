@@ -23,33 +23,72 @@ export function QuoteActions({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [current, setCurrent] = useState(status);
+  const [error, setError] = useState("");
 
   async function setStatus(s: string) {
+    const previous = current;
     setBusy(true);
+    setError("");
     setCurrent(s);
-    await fetch(`/api/quotes/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: s }),
-    });
-    setBusy(false);
-    router.refresh();
+    try {
+      const res = await fetch(`/api/quotes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: s }),
+      });
+      if (!res.ok) {
+        // Le bouton passait au vert même quand l'appel échouait : on
+        // rétablit l'état réel plutôt que d'afficher un statut faux.
+        setCurrent(previous);
+        const d = await res.json().catch(() => ({}));
+        setError(d.error || "Changement de statut impossible.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setCurrent(previous);
+      setError("Changement de statut impossible. Vérifiez votre connexion.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function duplicate() {
     setBusy(true);
-    const res = await fetch(`/api/quotes/${id}/duplicate`, { method: "POST" });
-    const d = await res.json();
-    setBusy(false);
-    if (res.ok) router.push(`/devis/${d.id}`);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}/duplicate`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error || "Duplication impossible.");
+        return;
+      }
+      router.push(`/devis/${d.id}`);
+    } catch {
+      setError("Duplication impossible. Vérifiez votre connexion.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove() {
     if (!confirm("Supprimer ce devis ?")) return;
     setBusy(true);
-    await fetch(`/api/quotes/${id}`, { method: "DELETE" });
-    router.push("/devis");
-    router.refresh();
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error || "Suppression impossible.");
+        return;
+      }
+      router.push("/devis");
+      router.refresh();
+    } catch {
+      setError("Suppression impossible. Vérifiez votre connexion.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const waNumber = (whatsapp || "").replace(/[^0-9]/g, "");
@@ -57,6 +96,11 @@ export function QuoteActions({
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
       <div className="card p-4 space-y-3">
         <div className="text-sm font-medium text-slate-600">Statut du devis</div>
         <div className="grid grid-cols-3 gap-2">

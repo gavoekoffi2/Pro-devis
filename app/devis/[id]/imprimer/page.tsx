@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requirePageUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { buildQuoteView } from "@/lib/build-view";
 import { QuoteDocument, PAPER_WIDTH } from "@/components/templates";
@@ -11,16 +11,15 @@ export default async function PrintQuotePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requirePageUser();
 
-  const quote = await prisma.quote.findUnique({
-    where: { id },
+  const quote = await prisma.quote.findFirst({
+    where: { id, companyId: user.companyId },
     include: { items: { orderBy: { order: "asc" } } },
   });
-  if (!quote || quote.companyId !== user.companyId) notFound();
+  if (!quote) notFound();
 
-  const view = buildQuoteView(quote, user.company!);
+  const view = buildQuoteView(quote, user.company);
   const width = PAPER_WIDTH[quote.paperSize] ?? PAPER_WIDTH.A4;
 
   return (

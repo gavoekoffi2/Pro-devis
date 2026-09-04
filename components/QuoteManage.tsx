@@ -39,28 +39,64 @@ export function QuoteManage({
   // pour éviter tout écart serveur/client à l'hydratation.
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    // `window.location.origin` n'existe pas au rendu serveur : le lien absolu
+    // ne peut être construit qu'après le montage, sinon l'hydratation diverge.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (publicId) setLink(`${window.location.origin}/d/${publicId}`);
   }, [publicId]);
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
-    await fetch(`/api/quotes/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setBusy(false);
-    router.refresh();
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error || "Enregistrement impossible.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Enregistrement impossible. Vérifiez votre connexion.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function getLink() {
     setBusy(true);
-    const res = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
-    const d = await res.json();
-    setBusy(false);
-    if (res.ok) setLink(`${window.location.origin}/d/${d.publicId}`);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error || "Génération du lien impossible.");
+        return;
+      }
+      setLink(`${window.location.origin}/d/${d.publicId}`);
+    } catch {
+      setError("Génération du lien impossible. Vérifiez votre connexion.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Copie du lien avec repli si le presse-papiers est indisponible (HTTP, iOS ancien). */
+  async function copyLink(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Copie impossible : sélectionnez le lien puis copiez-le à la main.");
+    }
   }
 
   const balance = Math.max(0, total - paid);
@@ -80,6 +116,12 @@ Date : ${new Date().toLocaleDateString("fr-FR")}`;
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
+
       {/* Facture & paiement */}
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
@@ -177,11 +219,7 @@ Date : ${new Date().toLocaleDateString("fr-FR")}`;
             <div className="flex gap-2">
               <input className="input text-xs" readOnly value={link} />
               <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(link);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                }}
+                onClick={() => copyLink(link)}
                 className="btn-ghost btn-sm"
               >
                 {copied ? "✓" : "Copier"}

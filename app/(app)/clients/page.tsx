@@ -26,7 +26,12 @@ export default function ClientsPage() {
   async function load() {
     try {
       const r = await fetch("/api/clients");
-      const d = await r.json();
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(d.error || "Impossible de charger les clients.");
+        return;
+      }
+      setError("");
       setClients(d.clients || []);
     } catch {
       setError("Impossible de charger les clients. Vérifiez votre connexion.");
@@ -35,6 +40,9 @@ export default function ClientsPage() {
     }
   }
   useEffect(() => {
+    // `load` est asynchrone : les setState surviennent après la réponse
+    // réseau, jamais pendant le rendu. La règle ne sait pas le déduire.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 
@@ -56,7 +64,7 @@ export default function ClientsPage() {
       }
       setForm({ name: "", phone: "", address: "", notes: "" });
       setShowForm(false);
-      load();
+      await load();
     } catch {
       setError("Enregistrement impossible. Vérifiez votre connexion.");
     } finally {
@@ -66,8 +74,18 @@ export default function ClientsPage() {
 
   async function remove(id: string) {
     if (!confirm("Supprimer ce client ? Ses devis existants seront conservés.")) return;
-    await fetch(`/api/clients/${id}`, { method: "DELETE" });
-    load();
+    setError("");
+    try {
+      const r = await fetch(`/api/clients/${id}`, { method: "DELETE" });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setError(d.error || "Suppression impossible.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Suppression impossible. Vérifiez votre connexion.");
+    }
   }
 
   return (

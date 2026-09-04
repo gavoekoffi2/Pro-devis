@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main
-      - claude/pro-devis-quote-app-hzos25
+      - "claude/**"
   pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -26,6 +30,23 @@ jobs:
 
       - name: Audit production dependencies
         run: npm audit --omit=dev
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://prodevis:ci-only@127.0.0.1:5432/prodevis
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
 
       - name: Build
         run: npm run build

@@ -41,14 +41,28 @@ export default function MaterialsPage() {
   });
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   async function load() {
-    const r = await fetch("/api/materials");
-    const d = await r.json();
-    setMaterials(d.materials || []);
-    setLoading(false);
+    try {
+      const r = await fetch("/api/materials");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setLoadError(d.error || "Impossible de charger les matériaux.");
+        return;
+      }
+      setLoadError("");
+      setMaterials(d.materials || []);
+    } catch {
+      setLoadError("Impossible de charger les matériaux. Vérifiez votre connexion.");
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
+    // Chargement initial : les setState sont déclenchés par la réponse
+    // réseau, pas de façon synchrone pendant le rendu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     fetch("/api/ai/status")
       .then((r) => r.json())
@@ -82,21 +96,32 @@ export default function MaterialsPage() {
   }
 
   async function estimateWithAI() {
+    const target = shown.filter((m) => m.kind !== "LABOR").slice(0, 40);
+    if (target.length === 0) {
+      setAiMsg("Aucun matériau à estimer dans la sélection courante.");
+      return;
+    }
     setAiBusy(true);
     setAiMsg("");
-    const target = shown.filter((m) => m.kind !== "LABOR").slice(0, 40);
-    const res = await fetch("/api/ai/estimate-prices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: target.map((m) => ({ key: m.key, name: m.name, unit: m.unit })),
-      }),
-    });
-    setAiBusy(false);
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setAiMsg(d.error || "Estimation impossible.");
+    let d: { prices?: Record<string, number>; error?: string } = {};
+    try {
+      const res = await fetch("/api/ai/estimate-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: target.map((m) => ({ key: m.key, name: m.name, unit: m.unit })),
+        }),
+      });
+      d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAiMsg(d.error || "Estimation impossible.");
+        return;
+      }
+    } catch {
+      setAiMsg("Estimation impossible. Vérifiez votre connexion.");
       return;
+    } finally {
+      setAiBusy(false);
     }
     const prices: Record<string, number> = d.prices || {};
     let n = 0;
@@ -118,19 +143,32 @@ export default function MaterialsPage() {
 
   async function save(m: Material) {
     setSavingKey(m.key);
-    await fetch("/api/materials", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: m.key,
-        unitPrice: m.unitPrice,
-        margin: m.margin,
-      }),
-    });
-    setSavingKey(null);
-    setMaterials((ms) =>
-      ms.map((x) => (x.key === m.key ? { ...x, custom: true } : x))
-    );
+    setLoadError("");
+    try {
+      const res = await fetch("/api/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: m.key,
+          unitPrice: m.unitPrice,
+          margin: m.margin,
+        }),
+      });
+      if (!res.ok) {
+        // L'ancienne version marquait le prix comme « enregistré » sans
+        // regarder la réponse : l'artisan croyait son prix sauvegardé.
+        const d = await res.json().catch(() => ({}));
+        setLoadError(d.error || "Enregistrement du prix impossible.");
+        return;
+      }
+      setMaterials((ms) =>
+        ms.map((x) => (x.key === m.key ? { ...x, custom: true } : x))
+      );
+    } catch {
+      setLoadError("Enregistrement du prix impossible. Vérifiez votre connexion.");
+    } finally {
+      setSavingKey(null);
+    }
   }
 
   async function resetOrDelete(m: Material) {
@@ -139,31 +177,47 @@ export default function MaterialsPage() {
       : "Revenir au prix du catalogue pour ce matériau ?";
     if (!confirm(msg)) return;
     setSavingKey(m.key);
-    await fetch(`/api/materials?key=${encodeURIComponent(m.key)}`, {
-      method: "DELETE",
-    });
-    setSavingKey(null);
-    load();
+    setLoadError("");
+    try {
+      const res = await fetch(`/api/materials?key=${encodeURIComponent(m.key)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setLoadError(d.error || "Suppression impossible.");
+        return;
+      }
+      await load();
+    } catch {
+      setLoadError("Suppression impossible. Vérifiez votre connexion.");
+    } finally {
+      setSavingKey(null);
+    }
   }
 
   async function addMaterial(e: React.FormEvent) {
     e.preventDefault();
     setAddBusy(true);
     setAddError("");
-    const res = await fetch("/api/materials", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(addForm),
-    });
-    setAddBusy(false);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      setAddError(d.error || "Création impossible.");
-      return;
+    try {
+      const res = await fetch("/api/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setAddError(d.error || "Création impossible.");
+        return;
+      }
+      setAddForm({ name: "", unit: "pièce", kind: "MATERIAL", unitPrice: 0 });
+      setShowAdd(false);
+      await load();
+    } catch {
+      setAddError("Création impossible. Vérifiez votre connexion.");
+    } finally {
+      setAddBusy(false);
     }
-    setAddForm({ name: "", unit: "pièce", kind: "MATERIAL", unitPrice: 0 });
-    setShowAdd(false);
-    load();
   }
 
   return (
@@ -179,6 +233,12 @@ export default function MaterialsPage() {
           {showAdd ? "Fermer" : "+ Matériau"}
         </button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3">
+          {loadError}
+        </div>
+      )}
 
       {showAdd && (
         <form onSubmit={addMaterial} className="card p-5 space-y-3">

@@ -15,18 +15,25 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    setLoading(false);
-    if (res.ok) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (res.ok) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Connexion impossible.");
+    } catch {
+      // Sans ce filet, une coupure réseau laissait le bouton bloqué sur
+      // « Connexion… » sans le moindre message.
+      setError("Connexion impossible. Vérifiez votre connexion internet.");
+    } finally {
+      setLoading(false);
     }
   }
 
